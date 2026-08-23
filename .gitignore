@@ -1,0 +1,21 @@
+# .NET build output
+**/bin/
+**/obj/
+**/TestResults/
+
+# Local packaging, screenshots, probes, and temporary validation output
+/artifacts/
+/work/
+/src/XRatio.Proxy/xratio/
+
+# IDE and user-specific files
+.vs/
+.impeccable/hook.cache.json
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# OS files
+Thumbs.db
+Desktop.ini

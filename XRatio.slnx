@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="src/XRatio.Core/XRatio.Core.csproj" />
+  <Project Path="src/XRatio.Proxy/XRatio.Proxy.csproj" />
+  <Project Path="src/XRatio.Desktop/XRatio.Desktop.csproj" />
+  <Project Path="tests-dotnet/XRatio.Core.Tests/XRatio.Core.Tests.csproj" />
+  <Project Path="tests-dotnet/XRatio.Proxy.Tests/XRatio.Proxy.Tests.csproj" />
+  <Project Path="tests-dotnet/XRatio.Desktop.Tests/XRatio.Desktop.Tests.csproj" />
+</Solution>

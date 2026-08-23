@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-23T00:00:00+02:00",
+  "title": "Design System: XRatio",
+  "extensions": {
+    "colorMeta": {
+      "accent-light": { "role": "primary", "displayName": "Teal signal", "canonical": "#087E8B", "tonalRamp": ["#03282C", "#06444B", "#075B64", "#087E8B", "#42AAB3", "#79C9CF", "#A9DFE3", "#D8F3F5"] },
+      "accent-dark": { "role": "primary", "displayName": "Cyan signal", "canonical": "#59D8E6", "tonalRamp": ["#082B30", "#0D4A52", "#176B75", "#2B9DA9", "#59D8E6", "#8DE7EF", "#BCEFF3", "#E4FBFC"] },
+      "canvas-light": { "role": "neutral", "displayName": "Cool canvas", "canonical": "#F4F6FA", "tonalRamp": ["#101722", "#243246", "#40516A", "#708198", "#A5B3C3", "#C9D2DD", "#E3E8EF", "#F4F6FA"] },
+      "canvas-dark": { "role": "neutral", "displayName": "Deep navy canvas", "canonical": "#0B1120", "tonalRamp": ["#05070D", "#0B1120", "#101827", "#172638", "#25364A", "#40546D", "#7086A0", "#9FB2C8"] },
+      "positive-light": { "role": "tertiary", "displayName": "Positive green", "canonical": "#0B8F68", "tonalRamp": ["#03271D", "#064C39", "#087153", "#0B8F68", "#45B894", "#81D3B7", "#B5E7D3", "#DCF7EB"] },
+      "danger-light": { "role": "tertiary", "displayName": "Danger red", "canonical": "#B42333", "tonalRamp": ["#350A10", "#64121D", "#8D1B2A", "#B42333", "#D85A67", "#EA8C96", "#F6BEC5", "#FDE9EC"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Runtime KPI", "purpose": "Large live status value." },
+      "label": { "displayName": "Console eyebrow", "purpose": "Uppercase section and mode labels." }
+    },
+    "shadows": [],
+    "motion": [
+      { "name": "native-state", "value": "Avalonia native control transition", "purpose": "Keep focus, hover, pressed, and disabled feedback platform-consistent." }
+    ],
+    "breakpoints": [
+      { "name": "minimum-window", "value": "980x640", "purpose": "Smallest supported desktop window." },
+      { "name": "default-window", "value": "1280x800", "purpose": "Default observation-console frame." }
+    ]
+  },
+  "components": [
+    { "name": "Primary Button", "kind": "button", "refersTo": "button-primary", "description": "Teal action for start, retry, save, and other primary operations.", "html": "<button class=\"ds-btn-primary\">Retry</button>", "css": ".ds-btn-primary{background:#087E8B;color:#fff;border:0;border-radius:5px;padding:7px 13px;min-height:36px;font:600 11.5px 'Segoe UI Variable Text',sans-serif}.ds-btn-primary:focus-visible{outline:2px solid #59D8E6;outline-offset:2px}" },
+    { "name": "Secondary Button", "kind": "button", "refersTo": "button-secondary", "description": "Raised bordered action for supporting or reversible work.", "html": "<button class=\"ds-btn-secondary\">Open Settings</button>", "css": ".ds-btn-secondary{background:#F8FAFD;color:#122034;border:1px solid #D8E1EC;border-radius:5px;padding:7px 13px;min-height:36px;font:600 11.5px 'Segoe UI Variable Text',sans-serif}.ds-btn-secondary:focus-visible{outline:2px solid #087E8B;outline-offset:2px}" },
+    { "name": "Navigation Item", "kind": "nav", "refersTo": "nav-selected", "description": "Selected left-rail destination with teal signal treatment.", "html": "<div class=\"ds-nav-selected\">Overview</div>", "css": ".ds-nav-selected{background:#D8F3F5;color:#087E8B;border:1px solid #087E8B;border-radius:9px;padding:10px 13px;min-height:46px;font:600 12.5px 'Segoe UI Variable Text',sans-serif}" },
+    { "name": "Runtime Panel", "kind": "card", "refersTo": "panel", "description": "Flat bordered container for KPI rows and operational state.", "html": "<section class=\"ds-panel\"><b>PROXY CHANNEL</b><h2>Stopped</h2><small>Local tracker interception · HTTP / HTTPS</small></section>", "css": ".ds-panel{background:#fff;color:#122034;border:1px solid #D8E1EC;border-radius:6px;padding:18px}.ds-panel b{color:#087E8B;font:700 9px 'Segoe UI Variable Text',sans-serif;letter-spacing:1.25px}.ds-panel h2{margin:8px 0 3px;font:700 29px 'Segoe UI Variable Text',sans-serif}.ds-panel small{color:#5C6B7E;font:400 11px 'Segoe UI Variable Text',sans-serif}" },
+    { "name": "Text Field", "kind": "input", "refersTo": "input", "description": "Compact raised field used in settings and simulation forms.", "html": "<input class=\"ds-input\" placeholder=\"Port\" />", "css": ".ds-input{background:#F8FAFD;color:#122034;border:1px solid #D8E1EC;border-radius:4px;padding:7px 11px;min-height:36px;font:400 13px 'Segoe UI Variable Text',sans-serif}.ds-input:focus-visible{outline:2px solid #087E8B;outline-offset:1px}" }
+  ],
+  "narrative": {
+    "northStar": "The Local Observation Console",
+    "overview": "XRatio is a native, compact supervision surface for advanced BitTorrent users. It should read like a calm operations instrument: status first, controls close at hand, and enough technical density to verify proxy interception, simulation sessions, and activity without visual noise. The visual language is deliberately desktop-native and functional rather than decorative.\n\nThe system uses a pale blue-gray light canvas and deep navy dark canvas, with white/navy surfaces, fine borders, and a single cyan-teal action voice. Light and dark themes preserve the same hierarchy and geometry.",
+    "keyCharacteristics": ["Compact observation console with a fixed navigation rail and top control bar.", "Flat, bordered surfaces; depth comes from tonal layering, not shadows.", "Teal/cyan accent reserved for selection, primary actions, and operational emphasis.", "Tabular numerals and terse labels support scanning of runtime metrics."],
+    "rules": [
+      { "name": "The Signal-Rarity Rule", "body": "Use teal/cyan as a signal, not as decoration: it should identify action, selection, or state and remain visually scarce on any given surface.", "section": "colors" },
+      { "name": "The Stable-Metrics Rule", "body": "Apply tabular numerals to counters, rates, sizes, timestamps, and other values that update in place; never use decorative numerals that cause layout drift.", "section": "typography" },
+      { "name": "The Flat Console Rule", "body": "Depth communicates containment and hierarchy through fill and border contrast; do not add generic shadows, gradients, or glass effects to native work surfaces.", "section": "elevation" }
+    ],
+    "dos": ["Do preserve the fixed top-bar and left-rail observation-console structure.", "Do use the exact light/dark palette roles and keep hierarchy invariant across themes.", "Do keep borders, spacing, and text compact enough for operational scanning.", "Do use explicit labels for proxy, simulation, activity, and recovery states.", "Do use tabular numerals for live metrics and retain native focus/keyboard affordances."],
+    "donts": ["Don't turn the desktop console into a marketing dashboard or decorative glassmorphism surface.", "Don't merge Interception and Simulation into one ambiguous status stream.", "Don't use teal as a general background or apply gradients/shadows without a state-driven reason.", "Don't remove textual state labels in favor of color-only indicators.", "Don't replace native Avalonia controls with web-shaped interaction patterns."]
+  }
+}

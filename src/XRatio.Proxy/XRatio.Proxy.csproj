@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../XRatio.Core/XRatio.Core.csproj" />
+  </ItemGroup>
+</Project>

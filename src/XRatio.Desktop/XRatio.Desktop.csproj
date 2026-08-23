@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <ApplicationIcon>../../assets/XRatio-app-icon-v5.ico</ApplicationIcon>
+    <AssemblyName>XRatio</AssemblyName>
+    <RootNamespace>XRatio.Desktop</RootNamespace>
+    <RuntimeIdentifiers>win-x64;linux-x64;osx-x64</RuntimeIdentifiers>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <ProjectReference Include="../XRatio.Core/XRatio.Core.csproj" />
+    <ProjectReference Include="../XRatio.Proxy/XRatio.Proxy.csproj" />
+    <AvaloniaResource Include="../../assets/XRatio-app-icon-v5.png" Link="Assets/XRatio-app-icon-v5.png" />
+    <InternalsVisibleTo Include="XRatio.Desktop.Tests" />
+  </ItemGroup>
+</Project>

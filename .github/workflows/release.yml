@@ -1,0 +1,162 @@
+name: Build and Release
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dotnet-common-tests:
+    name: .NET common tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          dotnet-version: 10.0.302
+
+      - name: Test Core
+        run: dotnet test tests-dotnet/XRatio.Core.Tests/XRatio.Core.Tests.csproj --configuration Release
+
+      - name: Test Proxy
+        run: dotnet test tests-dotnet/XRatio.Proxy.Tests/XRatio.Proxy.Tests.csproj --configuration Release
+
+      - name: Audit NuGet dependencies
+        run: dotnet list XRatio.slnx package --vulnerable --include-transitive
+
+  dotnet-desktop-builds:
+    name: .NET desktop tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+          - os: ubuntu-latest
+            rid: linux-x64
+          - os: macos-latest
+            rid: osx-x64
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          dotnet-version: 10.0.302
+
+      - name: Test Avalonia desktop and platform boundary
+        run: dotnet test tests-dotnet/XRatio.Desktop.Tests/XRatio.Desktop.Tests.csproj --configuration Release
+
+      - name: Compile Avalonia desktop for target RID
+        run: dotnet build src/XRatio.Desktop/XRatio.Desktop.csproj --configuration Release --runtime ${{ matrix.rid }}
+
+      - name: Verify attended trust test is opt-in
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          XRATIO_RUN_ATTENDED_TRUST_TEST: ''
+          XRATIO_ATTENDED_PROFILE: ''
+        run: dotnet test tests-dotnet/XRatio.Desktop.Tests/XRatio.Desktop.Tests.csproj --configuration Release --filter 'FullyQualifiedName~TrustRoundTrip_CurrentUserRootStore'
+
+  dotnet-windows-package:
+    name: .NET Windows x64 package
+    runs-on: windows-latest
+    needs:
+      - dotnet-common-tests
+      - dotnet-desktop-builds
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          dotnet-version: 10.0.302
+
+      - name: Package win-x64
+        shell: pwsh
+        run: ./scripts/package-win-x64.ps1
+
+      - name: Smoke published Windows application
+        shell: pwsh
+        run: ./scripts/smoke-win-x64.ps1
+
+      - name: Verify Windows package checksums and entries
+        shell: pwsh
+        run: |
+          $exe = '.\artifacts\win-x64\XRatio.exe'
+          $exeHashFile = '.\artifacts\win-x64\XRatio.exe.sha256'
+          $actualExeHash = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLower()
+          $declaredExeHash = ((Get-Content $exeHashFile -Raw).Trim() -split '\s+')[0].ToLower()
+          if ($actualExeHash -ne $declaredExeHash) {
+            throw "Published EXE checksum mismatch: expected $declaredExeHash, got $actualExeHash."
+          }
+          $archive = '.\artifacts\XRatio-dotnet-win-x64.zip'
+          $archiveHashFile = "$archive.sha256"
+          $actualArchiveHash = (Get-FileHash $archive -Algorithm SHA256).Hash.ToLower()
+          $declaredArchiveHash = ((Get-Content $archiveHashFile -Raw).Trim() -split '\s+')[0].ToLower()
+          if ($actualArchiveHash -ne $declaredArchiveHash) {
+            throw "Published ZIP checksum mismatch: expected $declaredArchiveHash, got $actualArchiveHash."
+          }
+          $entries = @(tar -tf $archive)
+          if (($entries -notcontains 'XRatio.exe') -or ($entries -notcontains 'XRatio.exe.sha256')) {
+            throw "Published ZIP entries are incomplete: $($entries -join ', ')."
+          }
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: xratio-dotnet-win-x64
+          path: |
+            artifacts/win-x64/XRatio.exe
+            artifacts/win-x64/XRatio.exe.sha256
+            artifacts/XRatio-dotnet-win-x64.zip
+            artifacts/XRatio-dotnet-win-x64.zip.sha256
+          if-no-files-found: error
+
+  release:
+    name: Publish Release
+    runs-on: windows-latest
+    needs:
+      - dotnet-windows-package
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download .NET Windows artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: xratio-dotnet-win-x64
+          path: dotnet-package
+
+      - name: Release and upload asset
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        with:
+          files: |
+            dotnet-package/win-x64/XRatio.exe
+            dotnet-package/win-x64/XRatio.exe.sha256
+            dotnet-package/XRatio-dotnet-win-x64.zip
+            dotnet-package/XRatio-dotnet-win-x64.zip.sha256
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
