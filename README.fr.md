@@ -5,6 +5,16 @@ XRatio est une application desktop tout-en-un pour piloter les ratios annoncés 
 - **Interception** : le moteur RatioGhost réécrit les annonces HTTP/HTTPS d’un vrai client torrent via un proxy local.
 - **Simulation** : le moteur RatioMaster charge un fichier `.torrent` et envoie des annonces indépendantes avec des compteurs, vitesses et profils clients contrôlés.
 
+<p align="center">
+  <img src="docs/screenshots/overview-dim-theme.png" alt="Vue d’ensemble XRatio avec le thème sombre doux" width="1000">
+</p>
+
+<p align="center">
+  <a href="https://github.com/Mac-Cipher/XRatio/releases/latest"><strong>Télécharger la dernière version Windows</strong></a>
+  ·
+  <a href="README.md">Read this page in English</a>
+</p>
+
 XRatio est écrit en C#/.NET 10 et cible Windows en priorité. Le cœur et le proxy restent compilables sur Linux/macOS, sans prétendre à une validation desktop native sur ces systèmes.
 
 ## Interface
