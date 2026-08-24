@@ -104,6 +104,37 @@ public sealed class HttpProxyServerTests
     }
 
     [Fact]
+    public async Task Proxy_FallsBackToHttpsWhenHttpTrackerPortIsUnavailable()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var handler = new HttpToHttpsFallbackHandler();
+        var proxyPort = ReservePort();
+        await using var proxy = new HttpProxyServer(
+            new AnnounceTransformer(),
+            () => new XRatioSettings { ListenPort = proxyPort },
+            outboundHandler: handler);
+        await proxy.StartAsync(timeout.Token);
+
+        using var client = new TcpClient();
+        await client.ConnectAsync(IPAddress.Loopback, proxyPort, timeout.Token);
+        await using var stream = client.GetStream();
+        await stream.WriteAsync(
+            Encoding.ASCII.GetBytes(
+                "GET http://tracker.test:2710/announce?info_hash=abc&downloaded=1&uploaded=1&left=1 HTTP/1.1\r\n" +
+                "Host: tracker.test:2710\r\nConnection: close\r\n\r\n"),
+            timeout.Token);
+        using var response = new MemoryStream();
+        await stream.CopyToAsync(response, timeout.Token);
+
+        Assert.Equal(3, handler.Requests.Count);
+        Assert.All(handler.Requests.Take(2), request =>
+            Assert.Equal("http", request.Scheme, ignoreCase: true));
+        Assert.Equal("https", handler.Requests[2].Scheme, ignoreCase: true);
+        Assert.Equal(443, handler.Requests[2].Port);
+        Assert.StartsWith("HTTP/1.1 200", Encoding.ASCII.GetString(response.ToArray()), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Proxy_ReturnsBadGatewayWithOutboundFailureDetails()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
@@ -402,6 +433,27 @@ public sealed class HttpProxyServerTests
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new ByteArrayContent(Encoding.ASCII.GetBytes("d8:intervali60ee"))
+            });
+        }
+    }
+
+    private sealed class HttpToHttpsFallbackHandler : HttpMessageHandler
+    {
+        public List<Uri> Requests { get; } = [];
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            var target = request.RequestUri ?? throw new InvalidOperationException("Request URI is missing.");
+            Requests.Add(target);
+            if (target.Scheme.Equals("http", StringComparison.OrdinalIgnoreCase))
+                throw new HttpRequestException("tracker HTTP port unavailable");
+
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent(
+                    Encoding.ASCII.GetBytes("d8:completei1e10:incompletei2e8:intervali60ee"))
             });
         }
     }

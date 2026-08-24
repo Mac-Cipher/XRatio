@@ -10,6 +10,7 @@ using System.Collections.Concurrent;
 using XRatio.Core.Announcements;
 using XRatio.Core.Configuration;
 using XRatio.Core.Platform;
+using XRatio.Core.Simulation;
 
 namespace XRatio.Proxy;
 
@@ -388,6 +389,7 @@ public sealed class HttpProxyServer : IAsyncDisposable
             response = await SendTrackerRequestAsync(
                 result.Target,
                 lines.Skip(1),
+                result.InfoHash is not null,
                 cancellationToken);
         }
         catch (Exception exception) when (IsOutboundFailure(exception) &&
@@ -432,30 +434,50 @@ public sealed class HttpProxyServer : IAsyncDisposable
     private async Task<HttpResponseMessage> SendTrackerRequestAsync(
         Uri target,
         IEnumerable<string> headerLines,
+        bool isTrackerRequest,
         CancellationToken cancellationToken)
     {
         Exception? lastException = null;
-        for (var attempt = 1; attempt <= MaximumOutboundAttempts; attempt++)
+        foreach (var candidate in GetTrackerRequestCandidates(target, isTrackerRequest))
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, target);
-            CopyRequestHeaders(headerLines, request);
-            try
+            for (var attempt = 1; attempt <= MaximumOutboundAttempts; attempt++)
             {
-                return await _httpClient.SendAsync(
-                    request,
-                    HttpCompletionOption.ResponseHeadersRead,
-                    cancellationToken);
-            }
-            catch (Exception exception) when (IsOutboundFailure(exception) &&
-                                              attempt < MaximumOutboundAttempts &&
-                                              !cancellationToken.IsCancellationRequested)
-            {
-                lastException = exception;
-                await Task.Delay(OutboundRetryDelay, cancellationToken);
+                using var request = new HttpRequestMessage(HttpMethod.Get, candidate);
+                CopyRequestHeaders(headerLines, request);
+                try
+                {
+                    return await _httpClient.SendAsync(
+                        request,
+                        HttpCompletionOption.ResponseHeadersRead,
+                        cancellationToken);
+                }
+                catch (Exception exception) when (IsOutboundFailure(exception) &&
+                                                  !cancellationToken.IsCancellationRequested)
+                {
+                    lastException = exception;
+                    if (attempt < MaximumOutboundAttempts)
+                        await Task.Delay(OutboundRetryDelay, cancellationToken);
+                }
             }
         }
 
         throw lastException ?? new InvalidOperationException("The tracker request ended without a response.");
+    }
+
+    private static IEnumerable<Uri> GetTrackerRequestCandidates(Uri target, bool isTrackerRequest)
+    {
+        yield return target;
+
+        // Some trackers advertise an HTTP announce URL on a dedicated port but
+        // only serve the same announce path over HTTPS on 443. Keep this
+        // fallback same-origin and limited to DNS HTTP targets so an upstream
+        // failure cannot turn into an arbitrary redirect or tunnel.
+        if (!isTrackerRequest)
+            yield break;
+
+        var httpsFallback = TrackerClient.BuildHttpsFallbackUri(target);
+        if (httpsFallback is not null)
+            yield return httpsFallback;
     }
 
     private static bool IsOutboundFailure(Exception exception) =>
