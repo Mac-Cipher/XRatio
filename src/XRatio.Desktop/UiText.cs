@@ -315,7 +315,7 @@ internal static class UiText
             ["Read the latest events"] = "Lire les derniers événements",
             ["Change a value"] = "Modifier une valeur",
             ["Edit the fields, review the toggles, then click Save changes in the Settings tab."] = "Modifiez les champs, vérifiez les options, puis cliquez sur Enregistrer dans l’onglet Réglages.",
-            ["Keep the qBittorrent ratio stable"] = "Garder le ratio qBittorrent stable",
+            ["Configure the qBittorrent client"] = "Configurer le client qBittorrent",
             ["Route qBittorrent tracker announces through the local XRatio proxy before checking the ratio."] = "Faites passer les annonces des trackers qBittorrent par le proxy local XRatio avant de vérifier le ratio.",
             ["Start XRatio and verify that the header shows HTTP/HTTPS active on 127.0.0.1:3773."] = "Démarrez XRatio et vérifiez que l’en-tête indique HTTP/HTTPS actif sur 127.0.0.1:3773.",
             ["In qBittorrent, open Tools > Options > Connection."] = "Dans qBittorrent, ouvrez Outils > Options > Connexion.",

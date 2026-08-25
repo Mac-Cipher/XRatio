@@ -851,19 +851,7 @@ public sealed class MainWindow : Window
                     "Change a value",
                     "Connection, ratio shaping and reporting options are grouped by purpose.",
                     ["Edit the fields, review the toggles, then click Save changes in the Settings tab."]),
-                new GuideSection(
-                    "Keep the qBittorrent ratio stable",
-                    "Route qBittorrent tracker announces through the local XRatio proxy before checking the ratio.",
-                    [
-                        "Start XRatio and verify that the header shows HTTP/HTTPS active on 127.0.0.1:3773.",
-                        "In qBittorrent, open Tools > Options > Connection.",
-                        "Under Proxy Server, choose HTTP, set Host to 127.0.0.1 and Port to 3773.",
-                        "Enable Perform hostname lookup via proxy and Use proxy for BitTorrent purposes. Leave Use proxy for peer connections disabled because XRatio handles tracker announces only.",
-                        "In XRatio Settings > Announce behavior, use Report download as zero or Pretend to seed only when that reporting mode is allowed for your test tracker; these options change the announce values and do not freeze a tracker-owned ratio.",
-                        "Click Apply, then OK. Check the Interception tab in XRatio for the next tracker announce.",
-                        "If the ratio still changes, check the port, proxy type and tracker policy. A proxy cannot force a tracker to accept or freeze a ratio."
-                    ],
-                    "avares://XRatio/Assets/qbittorrent-proxy-settings.png"),
+                BuildQbittorrentGuideSection(),
                 new GuideSection(
                     "Keep the scope clear",
                     "XRatio listens locally and does not handle payload or peer traffic.",
@@ -892,7 +880,8 @@ public sealed class MainWindow : Window
                 new GuideSection(
                     "Read the status",
                     "The summary shows proxy state, tracked torrents, active versus configured simulations and reported upload.",
-                    ["Start or pause the proxy from the top bar; the overview updates as activity changes."])
+                    ["Start or pause the proxy from the top bar; the overview updates as activity changes."]),
+                BuildQbittorrentGuideSection()
             ]),
         _ => new(
             $"{tabName} guide",
@@ -904,6 +893,20 @@ public sealed class MainWindow : Window
                     ["If an action is unavailable, select the relevant row or complete the required fields first."])
             ])
     };
+
+    private static GuideSection BuildQbittorrentGuideSection() => new(
+        "Configure the qBittorrent client",
+        "Route qBittorrent tracker announces through the local XRatio proxy before checking the ratio.",
+        [
+            "Start XRatio and verify that the header shows HTTP/HTTPS active on 127.0.0.1:3773.",
+            "In qBittorrent, open Tools > Options > Connection.",
+            "Under Proxy Server, choose HTTP, set Host to 127.0.0.1 and Port to 3773.",
+            "Enable Perform hostname lookup via proxy and Use proxy for BitTorrent purposes. Leave Use proxy for peer connections disabled because XRatio handles tracker announces only.",
+            "In XRatio Settings > Announce behavior, use Report download as zero or Pretend to seed only when that reporting mode is allowed for your test tracker; these options change the announce values and do not freeze a tracker-owned ratio.",
+            "Click Apply, then OK. Check the Interception tab in XRatio for the next tracker announce.",
+            "If the ratio still changes, check the port, proxy type and tracker policy. A proxy cannot force a tracker to accept or freeze a ratio."
+        ],
+        "avares://XRatio/Assets/qbittorrent-proxy-settings.png");
 
     private Control BuildActivityTab()
     {
