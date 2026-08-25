@@ -8,8 +8,8 @@
 
 XRatio est une application desktop tout-en-un pour piloter les ratios annoncés aux trackers BitTorrent. Elle réunit deux moteurs clairement séparés dans une interface Avalonia native, dense et conçue pour un usage quotidien :
 
-- **Interception** : un proxy local HTTP/HTTPS se place entre votre client torrent et le tracker, modifie les valeurs upload/download envoyées dans les annonces pour que le ratio annoncé puisse rester stable ou augmenter, sans toucher aux fichiers ni au trafic pair-à-pair.
-- **Simulation** : un moteur autonome lit un fichier `.torrent` et envoie des annonces contrôlées avec le profil client, les vitesses, la progression et les compteurs choisis ; il ne transfère pas les vrais fichiers du torrent.
+- **Interception** : un proxy local HTTP/HTTPS inspiré de [RatioGhost](https://github.com/ratioghost/ratioghost) se place entre votre client torrent et le tracker, modifie les valeurs upload/download envoyées dans les annonces pour que le ratio annoncé puisse rester stable ou augmenter, sans toucher aux fichiers ni au trafic pair-à-pair.
+- **Simulation** : un moteur autonome inspiré de [RatioMaster.NET](https://github.com/NikolayIT/RatioMaster.NET) lit un fichier `.torrent` et envoie des annonces contrôlées avec le profil client, les vitesses, la progression et les compteurs choisis ; il ne transfère pas les vrais fichiers du torrent.
 
 <p align="center">
   <img src="docs/screenshots/overview-light.png" alt="Vue d’ensemble actuelle de XRatio" width="1000">
