@@ -5,7 +5,6 @@
 ![Langage](https://img.shields.io/badge/Langage-C%23-purple?style=for-the-badge&logo=c-sharp)
 ![Interface](https://img.shields.io/badge/UI-Avalonia-8B5CF6?style=for-the-badge)
 ![Licence](https://img.shields.io/badge/Licence-GPL--3.0-green?style=for-the-badge)
-![Fait avec Codex](https://img.shields.io/badge/Fait%20avec-OpenAI%20Codex-412991?style=for-the-badge&logo=openai&logoColor=white)
 
 XRatio est une application desktop tout-en-un pour piloter les ratios annoncés aux trackers BitTorrent. Elle réunit deux moteurs clairement séparés dans une interface Avalonia native, dense et conçue pour un usage quotidien :
 
@@ -94,6 +93,10 @@ Le package autonome est créé dans `artifacts\win-x64`, puis archivé dans `art
 - `src/XRatio.Desktop` : interface Avalonia, tray, certificats et autostart.
 - `tests-dotnet` : tests Core, Proxy et Desktop.
 
+## Utilisation responsable et licence
+
+Les trackers peuvent interdire la modification ou la simulation de statistiques. Utilisez XRatio uniquement sur des services et torrents pour lesquels vous êtes autorisé à le faire, conformément aux règles du tracker et à la loi applicable.
+
 ## Inspiration et provenance
 
 Ce dépôt a été développé avec **OpenAI Codex**.
@@ -104,9 +107,5 @@ XRatio est une implémentation indépendante en .NET 10/Avalonia, inspirée par 
 - **[RatioMaster](https://github.com/Mac-Cipher/RatioMaster)** : inspiration pour le workflow de simulation `.torrent`, les sessions tracker, les profils clients, les compteurs, la variation de vitesse et le cycle de vie des annonces.
 
 Le détail des attributions figure dans [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
-
-## Utilisation responsable et licence
-
-Les trackers peuvent interdire la modification ou la simulation de statistiques. Utilisez XRatio uniquement sur des services et torrents pour lesquels vous êtes autorisé à le faire, conformément aux règles du tracker et à la loi applicable.
 
 XRatio est distribué sous GNU GPL v3. Voir [`license.txt`](license.txt) et [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
