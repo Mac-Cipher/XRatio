@@ -1,12 +1,19 @@
 # XRatio
 
+[![GitHub](https://img.shields.io/badge/GitHub-Mac--Cipher-blue?style=for-the-badge&logo=github)](https://github.com/Mac-Cipher/XRatio)
+![Plateforme](https://img.shields.io/badge/Plateforme-Windows-brightgreen?style=for-the-badge&logo=windows)
+![Langage](https://img.shields.io/badge/Langage-C%23-purple?style=for-the-badge&logo=c-sharp)
+![Interface](https://img.shields.io/badge/UI-Avalonia-8B5CF6?style=for-the-badge)
+![Licence](https://img.shields.io/badge/Licence-GPL--3.0-green?style=for-the-badge)
+![Fait avec Codex](https://img.shields.io/badge/Fait%20avec-OpenAI%20Codex-412991?style=for-the-badge&logo=openai&logoColor=white)
+
 XRatio est une application desktop tout-en-un pour piloter les ratios annoncés aux trackers BitTorrent. Elle réunit deux moteurs clairement séparés dans une interface Avalonia native, dense et conçue pour un usage quotidien :
 
-- **Interception** : le moteur RatioGhost réécrit les annonces HTTP/HTTPS d’un vrai client torrent via un proxy local.
-- **Simulation** : le moteur RatioMaster charge un fichier `.torrent` et envoie des annonces indépendantes avec des compteurs, vitesses et profils clients contrôlés.
+- **Interception** : un proxy local HTTP/HTTPS inspiré de [RatioGhost](https://github.com/Mac-Cipher/RatioGhost) réécrit les annonces d’un vrai client torrent.
+- **Simulation** : un moteur indépendant inspiré de [RatioMaster](https://github.com/Mac-Cipher/RatioMaster) charge un fichier `.torrent` et envoie des annonces avec des compteurs, vitesses et profils clients contrôlés.
 
 <p align="center">
-  <img src="docs/screenshots/overview-dim-theme.png" alt="Vue d’ensemble XRatio avec le thème sombre doux" width="1000">
+  <img src="docs/screenshots/overview-current.png" alt="Vue d’ensemble actuelle de XRatio" width="1000">
 </p>
 
 <p align="center">
@@ -80,12 +87,23 @@ Le package autonome est créé dans `artifacts\win-x64`, puis archivé dans `art
 
 ## Architecture
 
-- `src/XRatio.Core/Announcements` : réécriture et persistance RatioGhost.
+- `src/XRatio.Core/Announcements` : réécriture et persistance inspirées de RatioGhost.
 - `src/XRatio.Core/Torrents` : BEncode et métadonnées `.torrent`.
 - `src/XRatio.Core/Simulation` : profils, compteurs, sessions, tracker et persistance.
 - `src/XRatio.Proxy` : proxy HTTP/HTTPS asynchrone et journalisation masquée.
 - `src/XRatio.Desktop` : interface Avalonia, tray, certificats et autostart.
 - `tests-dotnet` : tests Core, Proxy et Desktop.
+
+## Inspiration et provenance
+
+Ce dépôt a été développé avec **OpenAI Codex**.
+
+XRatio est une implémentation indépendante en .NET 10/Avalonia, inspirée par deux projets existants :
+
+- **[RatioGhost](https://github.com/Mac-Cipher/RatioGhost)** : inspiration pour le workflow proxy/annonces, l’intégration locale, les certificats, le tray, le packaging et les limites de vérification.
+- **[RatioMaster](https://github.com/Mac-Cipher/RatioMaster)** : inspiration pour le workflow de simulation `.torrent`, les sessions tracker, les profils clients, les compteurs, la variation de vitesse et le cycle de vie des annonces.
+
+Le détail des attributions figure dans [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Utilisation responsable et licence
 
