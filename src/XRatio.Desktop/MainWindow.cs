@@ -36,6 +36,8 @@ namespace XRatio.Desktop;
  */
 public sealed class MainWindow : Window
 {
+    private const string RepositoryUrl = "https://github.com/Mac-Cipher/XRatio";
+
     private readonly ISettingsStore _store;
     private readonly IAutostartService _autostart;
     private readonly ICertificateAuthorityService _certificates;
@@ -569,7 +571,8 @@ public sealed class MainWindow : Window
                             LetterSpacing = 1.1
                         }
                     }
-                }
+                },
+                BuildGitHubRepositoryButton(28)
             }
         };
 
@@ -2452,6 +2455,8 @@ public sealed class MainWindow : Window
         _updateStatus.VerticalAlignment = VerticalAlignment.Center;
         _updateStatus.TextWrapping = Avalonia.Media.TextWrapping.Wrap;
 
+        var githubRepository = BuildGitHubRepositoryButton();
+
         var versionDisplay = new Border
         {
             Background = XRatioPalette.AccentSoft,
@@ -2496,7 +2501,7 @@ public sealed class MainWindow : Window
                 {
                     Orientation = Orientation.Horizontal,
                     Spacing = 12,
-                    Children = { _checkUpdates, _downloadUpdate, _updateStatus }
+                    Children = { _checkUpdates, _downloadUpdate, githubRepository, _updateStatus }
                 }),
             bottomPadding: 10);
 
@@ -2722,6 +2727,50 @@ public sealed class MainWindow : Window
         {
             _updateStatus.Text = L("Could not open update download");
             _updateStatus.Foreground = XRatioPalette.Warning;
+        }
+    }
+
+    private Button BuildGitHubRepositoryButton(double size = 36)
+    {
+        var button = new Button
+        {
+            Content = new PathIcon
+            {
+                Data = StreamGeometry.Parse(
+                    "M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.757-1.333-1.757-1.089-.745.084-.729.084-.729 1.205.084 1.84 1.236 1.84 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.21 0 1.595-.015 2.875-.015 3.265 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12z"),
+                Width = 16,
+                Height = 16,
+                Foreground = XRatioPalette.Muted
+            }
+        };
+        ConfigureGuideButton(button);
+        if (size != 36)
+        {
+            button.Width = size;
+            button.MinWidth = size;
+            button.CornerRadius = new CornerRadius(Math.Min(size, 36) / 2);
+            if (button.Content is PathIcon icon)
+            {
+                icon.Width = size * 0.5;
+                icon.Height = size * 0.5;
+            }
+        }
+        ToolTip.SetTip(button, "Open XRatio on GitHub");
+        button.Click += async (_, _) => await OpenRepositoryAsync();
+        return button;
+    }
+
+    private async Task OpenRepositoryAsync()
+    {
+        try
+        {
+            var launcher = TopLevel.GetTopLevel(this)?.Launcher;
+            if (launcher is null || !await launcher.LaunchUriAsync(new Uri(RepositoryUrl)))
+                _updateStatus.Text = L("Could not open GitHub repository");
+        }
+        catch (Exception) when (!_exiting)
+        {
+            _updateStatus.Text = L("Could not open GitHub repository");
         }
     }
 
