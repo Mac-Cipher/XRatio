@@ -77,6 +77,12 @@ The same settings are available in most clients that support an HTTP proxy. Stop
 
 For HTTPS trackers, open **Platform** in XRatio and explicitly trust the installation CA before enabling HTTPS interception. HTTP interception works without this step.
 
+Example qBittorrent configuration:
+
+<p align="center">
+  <img src="assets/qbittorrent-proxy-settings.png" alt="qBittorrent proxy settings for XRatio" width="760">
+</p>
+
 ## Build, test, and package
 
 Prerequisite: .NET SDK `10.0.302`.

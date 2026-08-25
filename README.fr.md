@@ -56,6 +56,12 @@ Les mêmes options existent dans la plupart des clients compatibles avec un prox
 
 Pour les trackers HTTPS, ouvrez **Platform** dans XRatio et approuvez explicitement la CA d’installation avant d’activer l’interception HTTPS. L’interception HTTP fonctionne sans cette étape.
 
+Exemple de configuration qBittorrent :
+
+<p align="center">
+  <img src="assets/qbittorrent-proxy-settings.png" alt="Configuration du proxy qBittorrent pour XRatio" width="760">
+</p>
+
 ## Mode Interception
 
 1. Lancez XRatio; le proxy local écoute par défaut sur `127.0.0.1:3773`.
