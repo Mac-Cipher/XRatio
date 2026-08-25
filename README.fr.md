@@ -34,6 +34,28 @@ XRatio est écrit en C#/.NET 10 et cible Windows en priorité. Le cœur et le pr
 
 Les simulations configurées sont enregistrées dans `%APPDATA%\XRatio\simulations.json` et restaurées arrêtées. Le mot de passe proxy n’est jamais persisté.
 
+## Installer et configurer un client torrent
+
+### Installer XRatio
+
+1. Téléchargez le dernier package Windows depuis [Releases](https://github.com/Mac-Cipher/XRatio/releases).
+2. Extrayez l’archive dans un dossier de votre choix et lancez `XRatio.exe`.
+3. Vérifiez que l’en-tête indique le proxy local sur `127.0.0.1:3773`.
+4. Laissez les simulations arrêtées, sauf si vous souhaitez lancer volontairement une session torrent contrôlée séparée.
+
+### Configurer qBittorrent
+
+Les mêmes options existent dans la plupart des clients compatibles avec un proxy HTTP. Arrêtez les torrents actifs avant de modifier la configuration.
+
+1. Ouvrez **Outils > Options > Connexion > Serveur proxy**.
+2. Choisissez **HTTP**, indiquez l’hôte `127.0.0.1` et le port `3773`.
+3. Activez **Utiliser le proxy pour les communications BitTorrent** et **Résoudre les noms d’hôtes via le proxy**.
+4. Laissez **Utiliser le proxy pour les connexions pair-à-pair** désactivé. XRatio ne traite que les annonces des trackers ; les données et connexions pair-à-pair gardent le chemin normal du client.
+5. Appliquez les réglages, puis démarrez ou forcez la mise à jour d’une annonce.
+6. Utilisez **Interception** et **Activity** dans XRatio pour vérifier l’annonce et ses compteurs.
+
+Pour les trackers HTTPS, ouvrez **Platform** dans XRatio et approuvez explicitement la CA d’installation avant d’activer l’interception HTTPS. L’interception HTTP fonctionne sans cette étape.
+
 ## Mode Interception
 
 1. Lancez XRatio; le proxy local écoute par défaut sur `127.0.0.1:3773`.
