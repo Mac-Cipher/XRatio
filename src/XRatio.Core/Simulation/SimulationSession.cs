@@ -57,7 +57,10 @@ public sealed class SimulationSession : IAsyncDisposable
         _leechers,
         _startedAt is { } started ? DateTimeOffset.UtcNow - started : TimeSpan.Zero,
         _nextAnnounce,
-        _lastError);
+        _lastError)
+    {
+        AccountName = _options.AccountName
+    };
 
     public async Task StartAsync(CancellationToken cancellationToken = default)
     {

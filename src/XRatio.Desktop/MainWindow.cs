@@ -15,6 +15,7 @@ using Avalonia.Platform;
 using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using XRatio.Core.Announcements;
 using XRatio.Core.Configuration;
 using XRatio.Core.Platform;
@@ -80,6 +81,7 @@ public sealed class MainWindow : Window
     private readonly CheckBox _pretendSeed = new();
     private readonly CheckBox _autoStart = new();
     private readonly CheckBox _startMinimized = new();
+    private readonly CheckBox _showTrayIcon = new();
     private readonly CheckBox _certificateConsent = new();
     private readonly TextBlock _certificateStatus = new();
     private readonly TextBlock _certificateStatusDetail = new();
@@ -92,6 +94,7 @@ public sealed class MainWindow : Window
     private readonly TextBlock _updateStatus = new();
     private readonly ComboBox _themeMode = new();
     private readonly ComboBox _accentColor = new();
+    private readonly ComboBox _trayIconStyle = new();
     private readonly ComboBox _languageMode = new();
     private readonly TextBlock _overviewProxyKpi = new();
     private readonly TextBlock _overviewTorrentKpi = new();
@@ -99,6 +102,7 @@ public sealed class MainWindow : Window
     private readonly TextBlock _overviewReportedKpi = new();
     private readonly TextBox _torrentPath = new();
     private readonly CheckBox _simulationRevealPrivateValues = new();
+    private readonly TextBox _simulationAccountName = new();
     private readonly ComboBox _simulationTracker = new();
     private readonly ComboBox _simulationClient = new();
     private readonly ComboBox _simulationStopMode = new();
@@ -142,6 +146,8 @@ public sealed class MainWindow : Window
     private CancellationTokenSource? _simulationFormSaveCancellation;
     private DateTimeOffset _sessionStarted;
 
+    internal static readonly IReadOnlyList<string> TrayIconStyles = ["Color", "Monochrome"];
+
     public MainWindow(
         ISettingsStore store,
         IAutostartService autostart,
@@ -166,6 +172,10 @@ public sealed class MainWindow : Window
         Icon = App.CreateAppIcon();
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         Content = BuildContent();
+        AddHandler(
+            InputElement.PointerPressedEvent,
+            OnWindowPointerPressed,
+            RoutingStrategies.Tunnel);
         Closing += OnClosing;
         Opened += OnOpened;
     }
@@ -178,6 +188,11 @@ public sealed class MainWindow : Window
     internal static string NormalizeAccentColor(string? accentColor) =>
         AccentPalette.Normalize(accentColor);
 
+    internal static string NormalizeTrayIconStyle(string? trayIconStyle) =>
+        string.Equals(trayIconStyle?.Trim(), "Monochrome", StringComparison.OrdinalIgnoreCase)
+            ? "Monochrome"
+            : "Color";
+
     internal const string ExistingSimulationFeedback =
         "Already added — the existing session is selected.";
 
@@ -188,7 +203,49 @@ public sealed class MainWindow : Window
 
     internal bool IsProxyPaused => _paused;
 
+    internal bool IsTrayIconEnabled => IsTrayAvailable() && _settings.ShowTrayIcon;
+
+    internal bool UseMonochromeTrayIcon =>
+        string.Equals(_settings.TrayIconStyle, "Monochrome", StringComparison.Ordinal);
+
     internal event Action<bool, bool>? RuntimeStateChanged;
+
+    private void OnWindowPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (!ShouldClearFocusForPointer(e.Source as Visual, this))
+            return;
+
+        FocusManager?.Focus(null, NavigationMethod.Pointer, e.KeyModifiers);
+    }
+
+    internal static bool ShouldClearFocusForPointer(Visual? source, Visual root)
+    {
+        for (var current = source; current is not null; current = current.GetVisualParent())
+        {
+            if (ReferenceEquals(current, root))
+                return true;
+
+            if (current is IInputElement input &&
+                input.Focusable &&
+                input.IsEnabled &&
+                input.IsHitTestVisible &&
+                IsInteractiveFocusControl(current))
+                return false;
+        }
+
+        return false;
+    }
+
+    private static bool IsInteractiveFocusControl(Visual visual) =>
+        visual is TextBox or
+            ComboBox or
+            ComboBoxItem or
+            CheckBox or
+            ToggleButton or
+            Button or
+            ListBoxItem or
+            TabItem or
+            MenuItem;
 
     internal static bool ShouldStartMinimized(
         bool trayAvailable,
@@ -1266,6 +1323,8 @@ public sealed class MainWindow : Window
         _torrentPath.HorizontalAlignment = HorizontalAlignment.Stretch;
         ConfigureTextBox(_simulationInfoHash, "Info hash");
         ConfigureTextBox(_simulationInfoSize, "Size");
+        ConfigureTextBox(_simulationAccountName, "Optional");
+        _simulationAccountName.MaxLength = 128;
         _simulationInfoHash.IsReadOnly = true;
         _simulationInfoSize.IsReadOnly = true;
         _simulationInfoHash.Width = double.NaN;
@@ -1319,6 +1378,7 @@ public sealed class MainWindow : Window
         ConfigureComboBox(_simulationStopMode, 180);
         ConfigureCompactSimulationControls(
             _torrentPath,
+            _simulationAccountName,
             _simulationInfoHash,
             _simulationInfoSize,
             _simulationUploadRate,
@@ -1339,6 +1399,10 @@ public sealed class MainWindow : Window
             _simulationStopMode,
             _simulationRandomUpload,
             _simulationRandomDownload);
+        _simulationAccountName.Width = 180;
+        _simulationAccountName.MinWidth = 180;
+        _simulationAccountName.MaxWidth = 180;
+        _simulationAccountName.HorizontalAlignment = HorizontalAlignment.Left;
         _simulationClient.ItemsSource = ClientProfileCatalog.All.Select(profile => profile.DisplayName).ToArray();
         _simulationClient.SelectedIndex = ClientProfileCatalog.All
             .Select((profile, index) => (profile, index))
@@ -1385,8 +1449,16 @@ public sealed class MainWindow : Window
                 Spacing = 6,
                 Children =
                 {
+                    BuildCompactFieldRow("Account", _simulationAccountName),
                     BuildCompactFieldRow("Tracker", _simulationTracker),
-                    BuildTorrentIdentityRow()
+                    BuildTorrentIdentityRow(),
+                    new TextBlock
+                    {
+                        Text = "The account label stays local; the tracker name is read automatically from the announce URL.",
+                        FontSize = 10,
+                        Foreground = XRatioPalette.Muted,
+                        TextWrapping = Avalonia.Media.TextWrapping.Wrap
+                    }
                 }
             });
         var speeds = BuildCompactGroup(
@@ -1600,8 +1672,9 @@ public sealed class MainWindow : Window
     {
         foreach (var input in new[]
                  {
-                     _torrentPath,
-                     _simulationUploadRate,
+            _torrentPath,
+            _simulationAccountName,
+            _simulationUploadRate,
                      _simulationDownloadRate,
                      _simulationCompleted,
                      _simulationRandomUploadMin,
@@ -1612,8 +1685,8 @@ public sealed class MainWindow : Window
                      _simulationNumWant,
                      _simulationAnnounceInterval,
                      _simulationStopValue,
-                     _simulationProxyAddress,
-                     _simulationProxyUsername
+            _simulationProxyAddress,
+            _simulationProxyUsername
                  })
             input.TextChanged += (_, _) => QueueSimulationFormPersistence();
 
@@ -1638,6 +1711,7 @@ public sealed class MainWindow : Window
         {
             TorrentPath = NullIfWhiteSpace(_torrentPath.Tag as string ?? _torrentPath.Text),
             Tracker = _simulationTracker.SelectedItem as string,
+            AccountName = _simulationAccountName.Text ?? string.Empty,
             ClientProfileId = clientProfileId,
             UploadKiBPerSecond = _simulationUploadRate.Text ?? string.Empty,
             DownloadKiBPerSecond = _simulationDownloadRate.Text ?? string.Empty,
@@ -1665,6 +1739,7 @@ public sealed class MainWindow : Window
         {
             _simulationUploadRate.Text = settings.UploadKiBPerSecond;
             _simulationDownloadRate.Text = settings.DownloadKiBPerSecond;
+            _simulationAccountName.Text = settings.AccountName;
             _simulationRandomUpload.IsChecked = settings.RandomUploadEnabled;
             _simulationRandomUploadMin.Text = settings.RandomUploadMinimumKiBPerSecond;
             _simulationRandomUploadMax.Text = settings.RandomUploadMaximumKiBPerSecond;
@@ -1768,6 +1843,7 @@ public sealed class MainWindow : Window
             {
                 Torrent = _pendingTorrent,
                 Tracker = tracker,
+                AccountName = NullIfWhiteSpace(_simulationAccountName.Text),
                 ClientProfileId = ClientProfileCatalog.All[_simulationClient.SelectedIndex].Id,
                 UploadBytesPerSecond = ParseKiBPerSecond(_simulationUploadRate, "Upload rate"),
                 DownloadBytesPerSecond = ParseKiBPerSecond(_simulationDownloadRate, "Download rate"),
@@ -2019,6 +2095,35 @@ public sealed class MainWindow : Window
     private static ListBoxItem BuildSimulationListItem(SimulationRow row)
     {
         var snapshot = row.Snapshot;
+        var accountName = string.IsNullOrWhiteSpace(snapshot.AccountName)
+            ? null
+            : snapshot.AccountName.Trim();
+        var identity = new StackPanel
+        {
+            Spacing = 1,
+            VerticalAlignment = VerticalAlignment.Center,
+            Children =
+            {
+                new TextBlock
+                {
+                    Text = snapshot.Name,
+                    Foreground = XRatioPalette.Ink,
+                    FontSize = 11.5,
+                    FontWeight = FontWeight.SemiBold,
+                    TextTrimming = TextTrimming.CharacterEllipsis
+                }
+            }
+        };
+        var trackerIdentity = accountName is null
+            ? snapshot.TrackerName
+            : $"{accountName} · {snapshot.TrackerName}";
+        identity.Children.Add(new TextBlock
+        {
+            Text = trackerIdentity,
+            Foreground = XRatioPalette.Subtle,
+            FontSize = 9.5,
+            TextTrimming = TextTrimming.CharacterEllipsis
+        });
         var total = snapshot.Downloaded + snapshot.Left;
         var ratio = double.IsPositiveInfinity(snapshot.Ratio)
             ? "∞"
@@ -2067,15 +2172,7 @@ public sealed class MainWindow : Window
                                 FontWeight = FontWeight.SemiBold
                             }
                         },
-                        Place(new TextBlock
-                        {
-                            Text = snapshot.Name,
-                            Foreground = XRatioPalette.Ink,
-                            FontSize = 11.5,
-                            FontWeight = FontWeight.SemiBold,
-                            TextTrimming = TextTrimming.CharacterEllipsis,
-                            VerticalAlignment = VerticalAlignment.Center
-                        }, column: 1)
+                        Place(identity, column: 1)
                     }
                 },
                 new Border
@@ -2318,6 +2415,14 @@ public sealed class MainWindow : Window
             if (!_suppressLanguageSelection)
                 MarkSettingsDirty();
         };
+        ConfigureComboBox(_trayIconStyle, 180);
+        _trayIconStyle.ItemsSource = TrayIconStyles;
+        _trayIconStyle.SelectedIndex = 0;
+        _trayIconStyle.SelectionChanged += (_, _) =>
+        {
+            if (!_suppressLanguageSelection)
+                MarkSettingsDirty();
+        };
         ConfigureComboBox(_languageMode, 180);
         _languageMode.ItemTemplate = new FuncDataTemplate<string>((value, _) => BuildLanguageOption(value));
         _languageMode.ItemsSource = UiText.LanguageLabels;
@@ -2402,10 +2507,18 @@ public sealed class MainWindow : Window
                 BuildFieldGrid(
                     ("Theme", (Control)_themeMode),
                     ("Accent color", (Control)_accentColor),
+                    ("Tray icon", (Control)_trayIconStyle),
                     ("Language", (Control)_languageMode)),
                 new TextBlock
                 {
                     Text = "Choose the language used by the XRatio interface.",
+                    Foreground = XRatioPalette.Muted,
+                    FontSize = 11.5,
+                    TextWrapping = Avalonia.Media.TextWrapping.Wrap
+                },
+                new TextBlock
+                {
+                    Text = "Color mode uses a red X when stopped and orange when paused; Monochrome keeps the whole icon neutral.",
                     Foreground = XRatioPalette.Muted,
                     FontSize = 11.5,
                     TextWrapping = Avalonia.Media.TextWrapping.Wrap
@@ -2647,9 +2760,26 @@ public sealed class MainWindow : Window
         _autoStart.Content = "Start automatically with the user session";
         ConfigureCheckBox(_autoStart);
         _autoStart.IsEnabled = _autostart.Capability.IsSupported;
+        _showTrayIcon.Content = "Show icon in notification area";
+        ConfigureCheckBox(_showTrayIcon);
+        _showTrayIcon.IsEnabled = IsTrayAvailable();
         _startMinimized.Content = "Start minimized to tray";
         ConfigureCheckBox(_startMinimized);
         _startMinimized.IsEnabled = IsTrayAvailable();
+        _showTrayIcon.PropertyChanged += (_, args) =>
+        {
+            if (args.Property != ToggleButton.IsCheckedProperty)
+                return;
+            _startMinimized.IsEnabled = IsTrayAvailable() && _showTrayIcon.IsChecked == true;
+            if (_showTrayIcon.IsChecked != true)
+                _startMinimized.IsChecked = false;
+            MarkSettingsDirty();
+        };
+        _startMinimized.PropertyChanged += (_, args) =>
+        {
+            if (args.Property == ToggleButton.IsCheckedProperty)
+                MarkSettingsDirty();
+        };
         _certificateConsent.Content =
             "I understand that XRatio will add its installation CA to my Windows user trust store.";
         ConfigureCheckBox(_certificateConsent);
@@ -2688,6 +2818,7 @@ public sealed class MainWindow : Window
                     FontSize = 12
                 },
                 _autoStart,
+                _showTrayIcon,
                 _startMinimized));
 
         var certificateActions = new StackPanel
@@ -2781,7 +2912,7 @@ public sealed class MainWindow : Window
             MarkSettingsSaved();
             _ = CheckForUpdatesAsync(startup: true);
             if (ShouldHideAfterStartup(
-                    IsTrayAvailable(),
+                    IsTrayIconEnabled,
                     _settings.StartMinimized,
                     Environment.GetCommandLineArgs().Contains("--minimized"),
                     _restoreRequested))
@@ -2798,7 +2929,7 @@ public sealed class MainWindow : Window
         if (_exiting)
             return;
         e.Cancel = true;
-        if (ShouldHideOnWindowClose(IsTrayAvailable()))
+        if (ShouldHideOnWindowClose(IsTrayIconEnabled))
         {
             Hide();
             return;
@@ -2981,6 +3112,8 @@ public sealed class MainWindow : Window
                 await StopProxyAsync();
                 await StartProxyAsync();
             }
+            UpdateTrayAvailabilityControls();
+            NotifyRuntimeStateChanged();
             MarkSettingsSaved();
             AddActivity("Configuration saved.");
         }
@@ -3465,6 +3598,11 @@ public sealed class MainWindow : Window
             _ => 0
         };
         _accentColor.SelectedIndex = Math.Max(0, AccentPalette.IndexOf(NormalizeAccentColor(settings.AccentColor)));
+        _trayIconStyle.SelectedIndex = Math.Max(
+            0,
+            Array.IndexOf(
+                TrayIconStyles.ToArray(),
+                NormalizeTrayIconStyle(settings.TrayIconStyle)));
         _languageMode.SelectedIndex = UiText.IndexOf(settings.Language);
         _port.Text = settings.ListenPort.ToString(CultureInfo.InvariantCulture);
         _minimumPeers.Text = settings.MinimumPeers.ToString(CultureInfo.InvariantCulture);
@@ -3480,13 +3618,20 @@ public sealed class MainWindow : Window
         _noDownload.IsChecked = settings.ReportDownloadAsZero;
         _pretendSeed.IsChecked = settings.PretendToSeed;
         _autoStart.IsChecked = settings.AutoStart;
-        _startMinimized.IsChecked = IsTrayAvailable() && settings.StartMinimized;
+        _showTrayIcon.IsChecked = IsTrayAvailable() && settings.ShowTrayIcon;
+        _startMinimized.IsEnabled = IsTrayAvailable() && _showTrayIcon.IsChecked == true;
+        _startMinimized.IsChecked = _startMinimized.IsEnabled && settings.StartMinimized;
+        UpdateTrayAvailabilityControls();
     }
 
     private XRatioSettings ReadForm() => _settings with
     {
         ThemeMode = SelectedThemeMode(),
         AccentColor = SelectedAccentColor(),
+        TrayIconStyle = NormalizeTrayIconStyle(
+            _trayIconStyle.SelectedIndex >= 0 && _trayIconStyle.SelectedIndex < TrayIconStyles.Count
+                ? TrayIconStyles[_trayIconStyle.SelectedIndex]
+                : null),
         Language = UiText.Normalize(_language),
         ListenPort = ParseInt(_port, "HTTP proxy port"),
         MinimumPeers = ParseInt(_minimumPeers, "Minimum leechers"),
@@ -3502,10 +3647,18 @@ public sealed class MainWindow : Window
         ReportDownloadAsZero = _noDownload.IsChecked == true,
         PretendToSeed = _pretendSeed.IsChecked == true,
         AutoStart = _autoStart.IsChecked == true,
-        StartMinimized = IsTrayAvailable() && _startMinimized.IsChecked == true
+        ShowTrayIcon = IsTrayAvailable() && _showTrayIcon.IsChecked == true,
+        StartMinimized = IsTrayAvailable() && _showTrayIcon.IsChecked == true &&
+                         _startMinimized.IsChecked == true
     };
 
     private static bool IsTrayAvailable() => App.ShouldCreateTrayIcon(OperatingSystem.IsWindows());
+
+    private void UpdateTrayAvailabilityControls()
+    {
+        _hide.IsVisible = IsTrayAvailable() && _settings.ShowTrayIcon;
+        _startMinimized.IsEnabled = IsTrayAvailable() && _showTrayIcon.IsChecked == true;
+    }
 
     private static int ParseInt(TextBox input, string name) =>
         int.TryParse(input.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)
@@ -4356,7 +4509,7 @@ public sealed class MainWindow : Window
             Background = XRatioPalette.NavCanvas,
             BorderBrush = Brushes.Transparent,
             BorderThickness = new Thickness(0),
-            Padding = new Thickness(14, 8, 14, 0),
+            Padding = new Thickness(14, 8, 14, 8),
             HorizontalAlignment = HorizontalAlignment.Left,
             VerticalAlignment = VerticalAlignment.Stretch,
             Child = panel

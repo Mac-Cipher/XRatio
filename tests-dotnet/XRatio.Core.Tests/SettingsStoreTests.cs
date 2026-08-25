@@ -13,6 +13,8 @@ public sealed class SettingsStoreTests
         Assert.True(settings.ReportDownloadAsZero);
         Assert.True(settings.PretendToSeed);
         Assert.Equal("Blue", settings.AccentColor);
+        Assert.Equal("Color", settings.TrayIconStyle);
+        Assert.True(settings.ShowTrayIcon);
     }
 
     [Fact]
@@ -23,6 +25,14 @@ public sealed class SettingsStoreTests
             var settings = new XRatioSettings { AccentColor = accent };
             settings.Validate();
         }
+    }
+
+    [Fact]
+    public void Validate_RejectsUnknownTrayIconStyle()
+    {
+        var settings = new XRatioSettings { TrayIconStyle = "Unexpected" };
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => settings.Validate());
     }
 
     [Fact]
@@ -48,9 +58,12 @@ public sealed class SettingsStoreTests
             ListenPort = 48123,
             ThemeMode = "Dim",
             AccentColor = "Teal",
+            TrayIconStyle = "Monochrome",
+            ShowTrayIcon = false,
             PretendToSeed = true,
             SimulationForm = new SimulationFormSettings
             {
+                AccountName = "test-account",
                 ClientProfileId = "qbittorrent-5.2",
                 UploadKiBPerSecond = "43210",
                 DownloadKiBPerSecond = "3210",
@@ -69,6 +82,8 @@ public sealed class SettingsStoreTests
         Assert.Equal(expected.ListenPort, actual.ListenPort);
         Assert.Equal(expected.ThemeMode, actual.ThemeMode);
         Assert.Equal(expected.AccentColor, actual.AccentColor);
+        Assert.Equal(expected.TrayIconStyle, actual.TrayIconStyle);
+        Assert.Equal(expected.ShowTrayIcon, actual.ShowTrayIcon);
         Assert.Equal(expected.PretendToSeed, actual.PretendToSeed);
         Assert.Equal(expected.SimulationForm, actual.SimulationForm);
         Assert.Equal(persisted, Assert.Single(actual.PersistedTorrents));

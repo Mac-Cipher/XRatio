@@ -43,6 +43,9 @@ public sealed record SimulationOptions
 
     public required TorrentMetadata Torrent { get; init; }
     public required Uri Tracker { get; init; }
+    // Optional local label for the account used on the tracker. It is never
+    // included in tracker announces or sent over the network.
+    public string? AccountName { get; init; }
     public string ClientProfileId { get; init; } = SimulationDefaults.ClientProfileId;
     public long UploadBytesPerSecond { get; init; } = SimulationDefaults.UploadBytesPerSecond;
     public long DownloadBytesPerSecond { get; init; } = SimulationDefaults.DownloadBytesPerSecond;
@@ -66,6 +69,8 @@ public sealed record SimulationOptions
     {
         ArgumentNullException.ThrowIfNull(Torrent);
         ArgumentNullException.ThrowIfNull(Tracker);
+        if (AccountName is { Length: > 128 })
+            throw new ArgumentOutOfRangeException(nameof(AccountName));
         ClientProfileCatalog.Get(ClientProfileId);
         if (!Torrent.Trackers.Contains(Tracker))
             throw new ArgumentException("The selected tracker does not belong to the torrent.", nameof(Tracker));
@@ -147,7 +152,20 @@ public sealed record SimulationSnapshot(
     DateTimeOffset? NextAnnounce,
     string? LastError)
 {
+    public string? AccountName { get; init; }
+
+    public string TrackerName => FormatTrackerName(Tracker);
+
     public double Ratio => Downloaded == 0 ? Uploaded > 0 ? double.PositiveInfinity : 0 : (double)Uploaded / Downloaded;
+
+    private static string FormatTrackerName(string tracker)
+    {
+        if (!Uri.TryCreate(tracker, UriKind.Absolute, out var uri) || string.IsNullOrWhiteSpace(uri.Host))
+            return tracker;
+        return uri.IsDefaultPort || uri.Port < 0
+            ? uri.Host
+            : $"{uri.Host}:{uri.Port}";
+    }
 
     public double CompletionPercent
     {

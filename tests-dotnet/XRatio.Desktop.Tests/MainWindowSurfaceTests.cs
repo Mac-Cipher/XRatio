@@ -40,8 +40,12 @@ public sealed class MainWindowSurfaceTests
         Assert.Equal(UiText.French, new XRatioSettings().Language);
         Assert.Equal("Light", new XRatioSettings().ThemeMode);
         Assert.Equal("Blue", new XRatioSettings().AccentColor);
+        Assert.Equal("Color", new XRatioSettings().TrayIconStyle);
+        Assert.True(new XRatioSettings().ShowTrayIcon);
         Assert.Equal(ThemePalette.SoftDark, MainWindow.NormalizeThemeMode("Soft Dark"));
         Assert.Equal(AccentPalette.Violet, MainWindow.NormalizeAccentColor("Violet"));
+        Assert.Equal("Monochrome", MainWindow.NormalizeTrayIconStyle(" monochrome "));
+        Assert.Equal("Color", MainWindow.NormalizeTrayIconStyle("unknown"));
         Assert.Equal(UiText.Japanese, UiText.Normalize("🇯🇵 日本語"));
 
         if (!OperatingSystem.IsWindows())
@@ -84,6 +88,7 @@ public sealed class MainWindowSurfaceTests
         var body = Assert.IsType<Grid>(root.Children[1]);
         var sidebar = Assert.IsType<Border>(body.Children[0]);
         Assert.Equal(250, sidebar.Width);
+        Assert.Equal(new Thickness(14, 8, 14, 8), sidebar.Padding);
         Assert.Equal(250, body.ColumnDefinitions[0].Width.Value);
         Assert.Contains(
             Descendants(sidebar).OfType<Border>(),
@@ -146,6 +151,7 @@ public sealed class MainWindowSurfaceTests
             content => Equals(content, "Browse…"));
         Assert.True(ContainsText(simulation, "No simulation sessions"));
         Assert.True(ContainsText(simulation, "Torrent info"));
+        Assert.True(ContainsText(simulation, "Account"));
         Assert.True(ContainsText(simulation, "Speed options"));
         Assert.True(ContainsText(simulation, "Upload speed (kB/s)"));
         Assert.True(ContainsText(simulation, "Download speed (kB/s)"));
@@ -228,6 +234,7 @@ public sealed class MainWindowSurfaceTests
 
         var options = Assert.IsType<Grid>(tabItems[4].Content);
         Assert.True(ContainsText(options, "Write redacted proxy debug log"));
+        Assert.True(ContainsText(options, "Color mode uses a red X when stopped and orange when paused; Monochrome keeps the whole icon neutral."));
         Assert.True(ContainsText(options, "Loading settings…"));
         Assert.True(ContainsText(options, AppVersion.Display));
         Assert.Contains(
@@ -254,10 +261,28 @@ public sealed class MainWindowSurfaceTests
             .Single(comboBox => comboBox.ItemsSource is IEnumerable<string> values &&
                                 values.SequenceEqual(AccentPalette.Options));
         Assert.Equal(0, accentSelector.SelectedIndex);
+        var trayIconSelector = Descendants(options)
+            .OfType<ComboBox>()
+            .Single(comboBox => comboBox.ItemsSource is IEnumerable<string> values &&
+                                values.SequenceEqual(MainWindow.TrayIconStyles));
+        Assert.Equal(0, trayIconSelector.SelectedIndex);
+        using var stopIconData = new MemoryStream();
+        TrayIconRenderer.CreateStopIcon().Save(stopIconData);
+        Assert.True(stopIconData.Length > 16);
+
+        using var pauseIconData = new MemoryStream();
+        TrayIconRenderer.CreatePauseIcon().Save(pauseIconData);
+        Assert.True(pauseIconData.Length > 16);
+        using var monochromeIconData = new MemoryStream();
+        TrayIconRenderer.CreateMonochromeIcon().Save(monochromeIconData);
+        Assert.True(monochromeIconData.Length > 16);
         Assert.Equal("Vue d’ensemble", UiText.TranslateMessage("Overview", UiText.French));
         Assert.Equal("Overview", UiText.TranslateMessage("Vue d’ensemble", UiText.English));
         Assert.Equal("Sombre doux", UiText.Translate("Dim", UiText.French));
         Assert.Equal("Sombre feutré", UiText.Translate("Soft Dark", UiText.French));
+        Assert.Equal("Icône de notification", UiText.Translate("Tray icon", UiText.French));
+        Assert.Equal("Couleur", UiText.Translate("Color", UiText.French));
+        Assert.Equal("Afficher l’icône dans la zone de notification", UiText.Translate("Show icon in notification area", UiText.French));
         Assert.Equal("Vista general", UiText.Translate("Overview", UiText.Spanish));
         Assert.Equal("Übersicht", UiText.Translate("Overview", UiText.German));
         Assert.Equal("Panoramica", UiText.Translate("Overview", UiText.Italian));
@@ -287,6 +312,7 @@ public sealed class MainWindowSurfaceTests
 
         var platform = Assert.IsType<ScrollViewer>(tabItems[5].Content);
         Assert.True(ContainsText(platform, "Start automatically with the user session"));
+        Assert.True(ContainsText(platform, "Show icon in notification area"));
         var platformButtons = Descendants(platform)
             .OfType<Button>()
             .Select(button => button.Content)
@@ -321,6 +347,25 @@ public sealed class MainWindowSurfaceTests
         Assert.Equal("Pause / resume rewriting", Assert.IsType<NativeMenuItem>(trayItems[1]).Header);
         Assert.IsType<NativeMenuItemSeparator>(trayItems[2]);
         Assert.Equal("Exit", Assert.IsType<NativeMenuItem>(trayItems[3]).Header);
+    }
+
+    [Fact]
+    public void PointerPressedOutsideFocusableControlClearsFocus()
+    {
+        var root = new Grid();
+        var input = new TextBox();
+        var toggle = new CheckBox();
+        var selector = new ComboBox();
+        var label = new TextBlock();
+        root.Children.Add(input);
+        root.Children.Add(toggle);
+        root.Children.Add(selector);
+        root.Children.Add(label);
+
+        Assert.False(MainWindow.ShouldClearFocusForPointer(input, root));
+        Assert.False(MainWindow.ShouldClearFocusForPointer(toggle, root));
+        Assert.False(MainWindow.ShouldClearFocusForPointer(selector, root));
+        Assert.True(MainWindow.ShouldClearFocusForPointer(label, root));
     }
 
     private static bool ContainsText(Control root, string text) =>
