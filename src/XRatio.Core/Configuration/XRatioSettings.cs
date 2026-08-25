@@ -59,7 +59,7 @@ public sealed record XRatioSettings
 
     public XRatioSettings Validate()
     {
-        if (AccentColor is not ("Blue" or "Teal"))
+        if (AccentColor is not ("Blue" or "Teal" or "Violet" or "Amber" or "Rose" or "Green"))
             throw new ArgumentOutOfRangeException(nameof(AccentColor));
         if (!OnlyLocalConnections)
             throw new InvalidOperationException("Remote proxy listening is disabled because it has no authentication boundary.");

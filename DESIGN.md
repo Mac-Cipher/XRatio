@@ -125,24 +125,25 @@ components:
 
 XRatio is a native, compact supervision surface for advanced BitTorrent users. It should read like a calm operations instrument: status first, controls close at hand, and enough technical density to verify proxy interception, simulation sessions, and activity without visual noise. The visual language is deliberately desktop-native and functional rather than decorative.
 
-The system uses a pale blue-gray light canvas, a slate middle theme, and a deep navy dark canvas, with fine borders and a blue action voice by default. A turquoise alternative remains available in Settings. All three themes preserve the same hierarchy and geometry while changing the ambient contrast. The observation-console direction is the durable reference for future screens: make runtime state legible in seconds, separate local interception from controlled simulation, and keep critical actions explicit.
+The system uses a pale blue-gray light canvas, a slate middle theme, a soft neutral-dark theme, and a deep navy dark canvas, with fine borders and a blue action voice by default. Teal, violet, amber, rose, and green alternatives remain available in Settings. All four themes preserve the same hierarchy and geometry while changing the ambient contrast. The interface is localized in English, French, Spanish, German, Italian, Portuguese, Japanese, Chinese, Arabic, and Russian, with country flags in the language picker. The observation-console direction is the durable reference for future screens: make runtime state legible in seconds, separate local interception from controlled simulation, and keep critical actions explicit.
 
 **Key Characteristics:**
 
 - Compact observation console with a fixed navigation rail and top control bar.
 - Flat, bordered surfaces; depth comes from tonal layering, not shadows.
-- Three ambient modes: light, dim slate, and dark navy.
-- Blue accent reserved for selection, primary actions, and operational emphasis; the alternate turquoise accent follows the same roles.
+- Four ambient modes: light, dim slate, soft dark, and dark navy.
+- Blue accent reserved for selection, primary actions, and operational emphasis; teal, violet, amber, rose, and green accents follow the same roles.
 - Tabular numerals and terse labels support scanning of runtime metrics.
 
 ## Colors
 
-The palette is a cool technical blue-gray system with light, dim slate, and dark navy surfaces, a blue signal color by default, an optional turquoise signal, and semantic green, amber, and red states. Values in the frontmatter are the normative palette from `XRatioPalette`.
+The palette is a cool technical blue-gray system with light, dim slate, soft neutral-dark, and dark navy surfaces, a blue signal color by default, optional teal/violet/amber/rose/green signals, and semantic green, amber, and red states. Values in the frontmatter are the normative palette from `XRatioPalette`.
 
 ### Primary
 
-- **Blue signal** (`accent-light` / `accent-dark`): primary actions, selected navigation, section eyebrows, and operational emphasis. Settings can switch the signal to turquoise without changing hierarchy.
+- **Blue signal** (`accent-light` / `accent-dark`): primary actions, selected navigation, section eyebrows, and operational emphasis. Settings can switch the signal to teal, violet, amber, rose, or green without changing hierarchy.
 - **Dim slate** (`canvas-dim` / `surface-dim`): the middle-contrast theme for lower ambient brightness without the full dark treatment.
+- **Soft dark:** a low-contrast neutral charcoal theme for long sessions when navy feels too strong.
 
 ### Secondary
 
@@ -155,6 +156,10 @@ The palette is a cool technical blue-gray system with light, dim slate, and dark
 - **Canvas:** `canvas-light` / `canvas-dark` is the open work area.
 - **Chrome:** `topbar-*` and `sidebar-*` define the top bar and navigation rail.
 - **Surfaces:** `surface-*`, `raised-*`, and metric surfaces create restrained tonal steps.
+- **Navigation shell:** the left rail inherits the open canvas in every theme; its single
+  rounded inset panel uses a neutral surface (`#171717` in dim/dark, white in light) with
+  a fine outline and a gray selected row, so the rail joins the work area without a hard
+  vertical color seam.
 - **Ink:** `ink-*` is primary text; `muted-*` supports descriptions; `subtle-*` is tertiary metadata.
 - **Border:** `border-*` is the one-pixel structural divider used throughout.
 
@@ -180,11 +185,11 @@ The palette is a cool technical blue-gray system with light, dim slate, and dark
 
 ## Layout
 
-The window opens at 1280×800 with a 980×640 minimum. A 66px top bar spans the window. Below it, a 216px left rail anchors six destinations: Overview, Interception, Simulation, Activity, Settings, and Platform. The content area stretches beside the rail and scrolls where a surface requires it.
+The window opens at 1280×800 with a 980×640 minimum. A 66px top bar spans the window. Below it, a 250px left navigation column contains one rounded panel that runs the full available height. The panel anchors six destinations—Overview, Interception, Simulation, Activity, Settings, and Platform—with Guide pinned to the bottom. The content area stretches beside the panel and scrolls where a surface requires it.
 
 Content uses a compact 4/8 rhythm: common gaps are 8, 12, 14, 16, and 18px; the main Overview surface has 30px outer padding, 18px row padding, 16px column gaps, and a 980px maximum content width. The Overview uses a 1.45:1 split between the runtime card and operating-modes card, with the failure banner and trust note spanning both columns.
 
-Navigation items are at least 200×44px with 8px side insets. Small uppercase section labels establish Monitoring, Control, and System groups; rows stay flat and selection is carried by a compact marker, accent text, and a one-pixel rule rather than a filled card. Preserve the left-rail + top-bar model on future screens; responsive behavior may reduce content density, but must not collapse the distinction between global controls and work-area navigation.
+Navigation items are at least 200×44px with 8px side insets and a small vertical gap so a selected row never touches its neighbor. Small section labels establish Monitoring, Control, System, and Support groups; sparse one-pixel dividers separate groups. The selected row uses a compact rounded gray fill with accent icon/text, while inactive rows remain transparent. Preserve the left-panel + top-bar model on future screens; responsive behavior may reduce content density, but must not collapse the distinction between global controls and work-area navigation.
 
 ## Elevation & Depth
 
@@ -222,7 +227,7 @@ Forms are gently compact rather than pill-shaped. Standard inputs and panels use
 
 ### Navigation
 
-The navigation rail uses one continuous list of six equal-height rows, with Segoe Fluent Icons / Segoe MDL2 Assets at 14px beside semibold 12.5px labels. There are no text dividers between menu items. Unselected rows are transparent with ink text and muted icons; the selected row stays transparent and relies on one native one-pixel selection rule plus accent text and icon color. The top bar carries the XRatio mark, LOCAL / MONITORING context, status badge, and Start/Pause/To tray controls.
+The navigation panel uses Segoe Fluent Icons / Segoe MDL2 Assets at 14px beside semibold 12.5px labels. Its section headings and one-pixel dividers keep the six destinations scannable without turning the panel into a second content surface. Unselected rows are transparent with ink text and muted icons; the selected row is a compact gray rounded fill with accent text and icon color, and each row has a small vertical gap. Guide stays pinned to the panel footer. The top bar carries the XRatio mark, LOCAL / MONITORING context, status badge, and Start/Pause/To tray controls.
 
 ### Observation Console
 
@@ -234,7 +239,7 @@ Represent running, paused, stopped, healthy, warning, and failure states with a 
 
 ### Localization
 
-Settings exposes a persistent English/French selector. Translation covers navigation, forms, guides, dialogs, activity entries, simulation rows, and runtime status copy; dynamic messages keep their values and remain wrapped instead of being clipped when the French wording is longer.
+Settings exposes a persistent language selector, the installed product version, and a non-destructive GitHub release check on startup plus on demand. Translation covers navigation, forms, guides, dialogs, activity entries, simulation rows, update status, and runtime status copy; dynamic messages keep their values and remain wrapped instead of being clipped when the French wording is longer.
 
 ## Do's and Don'ts
 

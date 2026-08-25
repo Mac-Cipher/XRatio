@@ -2,6 +2,8 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Platform;
 using Avalonia.Layout;
+using Avalonia.Media;
+using Avalonia.Platform;
 using System.Net.Sockets;
 using XRatio.Core.Configuration;
 using XRatio.Core.Platform;
@@ -38,6 +40,9 @@ public sealed class MainWindowSurfaceTests
         Assert.Equal(UiText.French, new XRatioSettings().Language);
         Assert.Equal("Light", new XRatioSettings().ThemeMode);
         Assert.Equal("Blue", new XRatioSettings().AccentColor);
+        Assert.Equal(ThemePalette.SoftDark, MainWindow.NormalizeThemeMode("Soft Dark"));
+        Assert.Equal(AccentPalette.Violet, MainWindow.NormalizeAccentColor("Violet"));
+        Assert.Equal(UiText.Japanese, UiText.Normalize("🇯🇵 日本語"));
 
         if (!OperatingSystem.IsWindows())
             return;
@@ -45,6 +50,9 @@ public sealed class MainWindowSurfaceTests
         AppBuilder.Configure<App>()
             .UsePlatformDetect()
             .SetupWithoutStarting();
+
+        using (var guideScreenshot = AssetLoader.Open(new Uri("avares://XRatio/Assets/qbittorrent-proxy-settings.png")))
+            Assert.True(guideScreenshot.Length > 0);
 
         var window = new MainWindow(
             new InMemorySettingsStore(),
@@ -57,6 +65,9 @@ public sealed class MainWindowSurfaceTests
         Assert.Equal("XRatio", MainWindow.ResolveWindowTitle(isWindows: false));
         Assert.True(App.ShouldCreateTrayIcon(isWindows: true));
         Assert.False(App.ShouldCreateTrayIcon(isWindows: false));
+        Assert.Equal("XRatio — OFF", App.FormatTrayToolTip(isRunning: false, isPaused: false));
+        Assert.Equal("XRatio — ON", App.FormatTrayToolTip(isRunning: true, isPaused: false));
+        Assert.Equal("XRatio — ON (paused)", App.FormatTrayToolTip(isRunning: true, isPaused: true));
         Assert.Equal(1280, window.Width);
         Assert.Equal(800, window.Height);
         Assert.Equal(492, MainWindow.ResolveSimulationTabsMaxHeight(800));
@@ -72,7 +83,11 @@ public sealed class MainWindowSurfaceTests
 
         var body = Assert.IsType<Grid>(root.Children[1]);
         var sidebar = Assert.IsType<Border>(body.Children[0]);
-        Assert.Equal(216, sidebar.Width);
+        Assert.Equal(250, sidebar.Width);
+        Assert.Equal(250, body.ColumnDefinitions[0].Width.Value);
+        Assert.Contains(
+            Descendants(sidebar).OfType<Border>(),
+            border => border.CornerRadius == new CornerRadius(18));
         var tabs = Assert.IsType<TabControl>(body.Children[1]);
         var tabItems = tabs.Items.Cast<TabItem>().ToArray();
         Assert.Equal(
@@ -80,21 +95,39 @@ public sealed class MainWindowSurfaceTests
             tabItems.Select(item => Assert.IsType<string>(item.Tag)).ToArray());
         Assert.All(tabItems, item => Assert.True(item.MinHeight >= 40));
         Assert.All(tabItems, item => Assert.Equal(44, item.MinHeight));
-        Assert.All(
-            tabItems,
-            item => Assert.DoesNotContain(
-                Descendants(Assert.IsAssignableFrom<Control>(item.Header)).OfType<TextBlock>(),
-                text => Equals(text.Tag, "NavSection")));
+        Assert.Equal(
+            ["Monitoring", "Control", "System"],
+            tabItems
+                .SelectMany(item => Descendants(Assert.IsAssignableFrom<Control>(item.Header)))
+                .OfType<TextBlock>()
+                .Where(text => Equals(text.Tag, "NavSection"))
+                .Select(text => Assert.IsType<string>(text.Text))
+                .ToArray());
+        Assert.Equal(
+            2,
+            tabItems
+                .SelectMany(item => Descendants(Assert.IsAssignableFrom<Control>(item.Header)))
+                .Count(control => Equals(control.Tag, "NavDivider")));
+        tabs.SelectedIndex = 2;
+        var selectedNavRow = Descendants(Assert.IsAssignableFrom<Control>(tabItems[2].Header))
+            .OfType<Border>()
+            .Single(border => Equals(border.Tag, "NavRow"));
+        var inactiveNavRow = Descendants(Assert.IsAssignableFrom<Control>(tabItems[1].Header))
+            .OfType<Border>()
+            .Single(border => Equals(border.Tag, "NavRow"));
+        Assert.NotSame(Brushes.Transparent, selectedNavRow.Background);
+        Assert.Same(Brushes.Transparent, inactiveNavRow.Background);
+        Assert.Equal(new CornerRadius(10), selectedNavRow.CornerRadius);
 
         var buttons = Descendants(root).OfType<Button>().ToArray();
         Assert.NotEmpty(buttons);
         Assert.All(buttons.Where(button => button is not CheckBox), button => Assert.True(button.MinHeight >= 36));
         var guideButton = buttons.Single(button => Equals(button.Tag, "GuideAction"));
-        Assert.Same(guideButton, body.Children[2]);
-        Assert.Equal("\uE897", guideButton.Content);
-        Assert.Equal(HorizontalAlignment.Left, guideButton.HorizontalAlignment);
-        Assert.Equal(VerticalAlignment.Bottom, guideButton.VerticalAlignment);
-        Assert.Equal(new Thickness(16, 0, 0, 14), guideButton.Margin);
+        Assert.Contains(
+            Descendants(guideButton).OfType<TextBlock>(),
+            text => Equals(text.Text, "\uE897"));
+        Assert.Equal(HorizontalAlignment.Stretch, guideButton.HorizontalAlignment);
+        Assert.Equal(VerticalAlignment.Stretch, guideButton.VerticalContentAlignment);
         var simulation = Assert.IsType<Border>(tabItems[2].Content);
         var simulationControls = Descendants(simulation).ToHashSet();
         Assert.All(
@@ -196,27 +229,43 @@ public sealed class MainWindowSurfaceTests
         var options = Assert.IsType<Grid>(tabItems[4].Content);
         Assert.True(ContainsText(options, "Write redacted proxy debug log"));
         Assert.True(ContainsText(options, "Loading settings…"));
+        Assert.True(ContainsText(options, AppVersion.Display));
         Assert.Contains(
             Descendants(options).OfType<Button>().Select(button => button.Content),
             content => Equals(content, "Save changes"));
+        Assert.Contains(
+            Descendants(options).OfType<Button>().Select(button => button.Content),
+            content => Equals(content, "Check for updates"));
         var themeSelector = Descendants(options)
             .OfType<ComboBox>()
             .Single(comboBox => comboBox.ItemsSource is IEnumerable<string> values &&
-                                values.SequenceEqual(["Light", "Dim", "Dark"]));
+                                values.SequenceEqual(ThemePalette.Options));
         Assert.Equal(0, themeSelector.SelectedIndex);
         var languageSelector = Descendants(options)
             .OfType<ComboBox>()
             .Single(comboBox => comboBox.ItemsSource is IEnumerable<string> values &&
-                                values.SequenceEqual([UiText.English, UiText.French]));
+                                values.SequenceEqual(UiText.LanguageLabels));
         Assert.Equal(0, languageSelector.SelectedIndex);
         var accentSelector = Descendants(options)
             .OfType<ComboBox>()
             .Single(comboBox => comboBox.ItemsSource is IEnumerable<string> values &&
-                                values.SequenceEqual(["Blue", "Teal"]));
+                                values.SequenceEqual(AccentPalette.Options));
         Assert.Equal(0, accentSelector.SelectedIndex);
         Assert.Equal("Vue d’ensemble", UiText.TranslateMessage("Overview", UiText.French));
         Assert.Equal("Overview", UiText.TranslateMessage("Vue d’ensemble", UiText.English));
         Assert.Equal("Sombre doux", UiText.Translate("Dim", UiText.French));
+        Assert.Equal("Sombre feutré", UiText.Translate("Soft Dark", UiText.French));
+        Assert.Equal("Vista general", UiText.Translate("Overview", UiText.Spanish));
+        Assert.Equal("Übersicht", UiText.Translate("Overview", UiText.German));
+        Assert.Equal("Panoramica", UiText.Translate("Overview", UiText.Italian));
+        Assert.Equal("Visão geral", UiText.Translate("Overview", UiText.Portuguese));
+        Assert.Equal("🇺🇸 English", UiText.LanguageLabels[0]);
+        Assert.Equal("🇫🇷 Français", UiText.LanguageLabels[1]);
+        Assert.Equal("US", UiText.FlagCodeAt(0));
+        Assert.Equal("FR", UiText.FlagCodeAt(1));
+        Assert.Equal("English", UiText.DisplayNameAt(0));
+        Assert.Equal("Français", UiText.DisplayNameAt(1));
+        Assert.Equal(1, UiText.LanguageIndex("🇫🇷 Français"));
         Assert.Equal(
             "HTTP/HTTPS actif sur 127.0.0.1:3773",
             UiText.TranslateMessage("HTTP/HTTPS active on 127.0.0.1:3773", UiText.French));
@@ -225,10 +274,13 @@ public sealed class MainWindowSurfaceTests
             UiText.TranslateMessage("HTTP/HTTPS actif sur 127.0.0.1:3773", UiText.English));
         languageSelector.SelectedIndex = 1;
         Assert.True(ContainsText(root, "Vue d’ensemble"));
-        Assert.Equal("Français", languageSelector.SelectedItem);
+        Assert.Equal("🇫🇷 Français", languageSelector.SelectedItem);
+        languageSelector.SelectedIndex = 2;
+        Assert.True(ContainsText(root, "Vista general"));
+        Assert.Equal("🇪🇸 Español", languageSelector.SelectedItem);
         languageSelector.SelectedIndex = 0;
         Assert.True(ContainsText(root, "Overview"));
-        Assert.Equal("English", languageSelector.SelectedItem);
+        Assert.Equal("🇺🇸 English", languageSelector.SelectedItem);
 
         var platform = Assert.IsType<ScrollViewer>(tabItems[5].Content);
         Assert.True(ContainsText(platform, "Start automatically with the user session"));

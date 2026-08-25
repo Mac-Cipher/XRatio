@@ -16,6 +16,16 @@ public sealed class SettingsStoreTests
     }
 
     [Fact]
+    public void Validate_AcceptsAllSupportedAccentColors()
+    {
+        foreach (var accent in new[] { "Blue", "Teal", "Violet", "Amber", "Rose", "Green" })
+        {
+            var settings = new XRatioSettings { AccentColor = accent };
+            settings.Validate();
+        }
+    }
+
+    [Fact]
     public async Task SaveAndLoad_RoundTripsConfiguration()
     {
         var directory = Path.Combine(Path.GetTempPath(), "XRatio.Tests", Guid.NewGuid().ToString("N"));

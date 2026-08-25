@@ -3,6 +3,7 @@ using System.Net.Sockets;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Templates;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
@@ -44,6 +45,8 @@ public sealed class MainWindow : Window
     private readonly SemaphoreSlim _settingsSaveGate = new(1, 1);
     private readonly ListBox _activity = new();
     private readonly TabControl _tabs = new();
+    private readonly ContentPresenter _tabContentHost = new();
+    private readonly List<(Button Button, Border Row)> _navigationItems = [];
     private readonly ListBox _torrents = new();
     private readonly ListBox _simulations = new();
     private readonly StackPanel _torrentsEmptyState = new();
@@ -84,6 +87,8 @@ public sealed class MainWindow : Window
     private readonly Button _removeCertificate = new();
     private readonly Button _settingsSaveAction = new();
     private readonly TextBlock _settingsSaveStatus = new();
+    private readonly Button _checkUpdates = new();
+    private readonly TextBlock _updateStatus = new();
     private readonly ComboBox _themeMode = new();
     private readonly ComboBox _accentColor = new();
     private readonly ComboBox _languageMode = new();
@@ -114,6 +119,7 @@ public sealed class MainWindow : Window
     private readonly TextBox _simulationProxyAddress = new();
     private readonly TextBox _simulationProxyUsername = new();
     private readonly Dictionary<Guid, SimulationEntry> _simulationEntries = [];
+    private readonly SemaphoreSlim _updateCheckGate = new(1, 1);
     private TorrentMetadata? _pendingTorrent;
     private XRatioSettings _settings = new();
     private string _language = UiText.English;
@@ -128,6 +134,7 @@ public sealed class MainWindow : Window
     private bool _settingsDirty;
     private bool _restoreRequested;
     private bool _suppressLanguageSelection;
+    private Uri? _latestReleaseUri;
     private int _torrentPersistenceRequested;
     private int _torrentPersistenceWriterRunning;
     private CancellationTokenSource? _simulationFormSaveCancellation;
@@ -174,6 +181,12 @@ public sealed class MainWindow : Window
 
     internal static double ResolveSimulationTabsMaxHeight(double windowHeight) =>
         Math.Max(280, windowHeight - 308);
+
+    internal bool IsProxyRunning => _proxy?.IsRunning == true;
+
+    internal bool IsProxyPaused => _paused;
+
+    internal event Action<bool, bool>? RuntimeStateChanged;
 
     internal static bool ShouldStartMinimized(
         bool trayAvailable,
@@ -269,44 +282,42 @@ public sealed class MainWindow : Window
         _tabs.Background = Brushes.Transparent;
         _tabs.BorderThickness = new Thickness(0);
         _tabs.Padding = new Thickness(0);
-        _tabs.TabStripPlacement = Dock.Left;
+        _tabs.Margin = new Thickness(0);
         _tabs.HorizontalContentAlignment = HorizontalAlignment.Stretch;
         _tabs.VerticalContentAlignment = VerticalAlignment.Stretch;
-        _tabs.Items.Add(CreateTabItem("\uE80F", "Overview", BuildOverviewTab()));
+        _tabs.Template = new FuncControlTemplate<TabControl>((_, _) => new Border
+        {
+            Background = Brushes.Transparent,
+            BorderBrush = Brushes.Transparent,
+            BorderThickness = new Thickness(0),
+            Child = _tabContentHost
+        });
+        _tabs.Items.Add(CreateTabItem("\uE80F", "Overview", BuildOverviewTab(), "Monitoring"));
         _tabs.Items.Add(CreateTabItem("\uE895", "Interception", BuildTorrentsTab()));
-        _tabs.Items.Add(CreateTabItem("\uE768", "Simulation", BuildSimulationTab()));
+        _tabs.Items.Add(CreateTabItem("\uE768", "Simulation", BuildSimulationTab(), "Control", divider: true));
         _tabs.Items.Add(CreateTabItem("\uE81C", "Activity", BuildActivityTab()));
-        _tabs.Items.Add(CreateTabItem("\uE713", "Settings", BuildOptionsTab()));
+        _tabs.Items.Add(CreateTabItem("\uE713", "Settings", BuildOptionsTab(), "System", divider: true));
         _tabs.Items.Add(CreateTabItem("\uE83D", "Platform", BuildPlatformTab()));
-        _tabs.SelectionChanged += (_, _) => RefreshNavigationStyles();
-        RefreshNavigationStyles();
+        _tabContentHost.HorizontalContentAlignment = HorizontalAlignment.Stretch;
+        _tabContentHost.VerticalContentAlignment = VerticalAlignment.Stretch;
+        _tabContentHost.Content = (_tabs.SelectedItem as TabItem)?.Content;
+        _tabs.SelectionChanged += (_, _) =>
+        {
+            _tabContentHost.Content = (_tabs.SelectedItem as TabItem)?.Content;
+            RefreshNavigationStyles();
+        };
 
-        var guide = CreateButton("\uE897", ButtonTone.Quiet, minWidth: 34);
-        guide.Tag = "GuideAction";
-        ToolTip.SetTip(guide, "Guide");
-        ConfigureGuideButton(guide);
-        guide.HorizontalAlignment = HorizontalAlignment.Left;
-        guide.VerticalAlignment = VerticalAlignment.Bottom;
-        guide.Margin = new Thickness(16, 0, 0, 14);
-        guide.Click += async (_, _) => await ShowGuideAsync(_tabs);
-
+        var navigation = BuildNavigation();
         var body = new Grid
         {
+            ColumnDefinitions = new ColumnDefinitions("250,*"),
             Children =
             {
-                new Border
-                {
-                    Width = 216,
-                    HorizontalAlignment = HorizontalAlignment.Left,
-                    Background = XRatioPalette.Sidebar,
-                    BorderBrush = XRatioPalette.Border,
-                    BorderThickness = new Thickness(0, 0, 1, 0),
-                    Padding = new Thickness(0, 8)
-                },
-                _tabs,
-                guide
+                Place(navigation, column: 0),
+                Place(_tabs, column: 1)
             }
         };
+        RefreshNavigationStyles();
 
         return new Grid
         {
@@ -332,6 +343,14 @@ public sealed class MainWindow : Window
         _themeMode.SelectedIndex >= 0 && _themeMode.SelectedIndex < ThemePalette.Options.Count
             ? ThemePalette.Options[_themeMode.SelectedIndex]
             : ThemePalette.Light;
+
+    private string SelectedAccentColor() =>
+        _accentColor.SelectedIndex >= 0 && _accentColor.SelectedIndex < AccentPalette.Options.Count
+            ? AccentPalette.Options[_accentColor.SelectedIndex]
+            : AccentPalette.Blue;
+
+    private string SelectedLanguage() =>
+        UiText.At(_languageMode.SelectedIndex);
 
     private void ApplyLocalization(Control? root = null)
     {
@@ -408,6 +427,24 @@ public sealed class MainWindow : Window
 
     private void RefreshNavigationStyles()
     {
+        foreach (var (button, row) in _navigationItems)
+        {
+            var selected = button.Tag is int tabIndex && tabIndex == _tabs.SelectedIndex;
+            row.Background = selected ? XRatioPalette.NavSelected : Brushes.Transparent;
+            row.BorderBrush = Brushes.Transparent;
+            row.BorderThickness = new Thickness(0);
+            row.CornerRadius = new CornerRadius(10);
+
+            foreach (var text in Descendants(row).OfType<TextBlock>())
+            {
+                text.Foreground = text.Tag switch
+                {
+                    "NavIcon" => selected ? XRatioPalette.Accent : XRatioPalette.Muted,
+                    _ => selected ? XRatioPalette.Accent : XRatioPalette.Ink
+                };
+            }
+        }
+
         foreach (var tab in _tabs.Items.OfType<TabItem>())
         {
             var selected = ReferenceEquals(tab, _tabs.SelectedItem);
@@ -422,9 +459,10 @@ public sealed class MainWindow : Window
                     .FirstOrDefault(border => Equals(border.Tag, "NavRow"));
                 if (row is not null)
                 {
-                    row.Background = Brushes.Transparent;
+                    row.Background = selected ? XRatioPalette.NeutralSoft : Brushes.Transparent;
                     row.BorderBrush = Brushes.Transparent;
                     row.BorderThickness = new Thickness(0);
+                    row.CornerRadius = new CornerRadius(10);
                 }
 
                 foreach (var text in Descendants(header).OfType<TextBlock>())
@@ -701,6 +739,28 @@ public sealed class MainWindow : Window
             });
         }
 
+        if (!string.IsNullOrWhiteSpace(section.ImageAsset))
+        {
+            using var imageStream = AssetLoader.Open(new Uri(section.ImageAsset));
+            var screenshot = new Bitmap(imageStream);
+            content.Children.Add(new Border
+            {
+                Background = XRatioPalette.SurfaceRaised,
+                BorderBrush = XRatioPalette.Border,
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(8),
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                Child = new Image
+                {
+                    Source = screenshot,
+                    Stretch = Stretch.Uniform,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    MaxWidth = 640
+                }
+            });
+        }
+
         return new Border
         {
             Background = XRatioPalette.Surface,
@@ -792,9 +852,25 @@ public sealed class MainWindow : Window
                     "Connection, ratio shaping and reporting options are grouped by purpose.",
                     ["Edit the fields, review the toggles, then click Save changes in the Settings tab."]),
                 new GuideSection(
+                    "Keep the qBittorrent ratio stable",
+                    "Route qBittorrent tracker announces through the local XRatio proxy before checking the ratio.",
+                    [
+                        "Start XRatio and verify that the header shows HTTP/HTTPS active on 127.0.0.1:3773.",
+                        "In qBittorrent, open Tools > Options > Connection.",
+                        "Under Proxy Server, choose HTTP, set Host to 127.0.0.1 and Port to 3773.",
+                        "Enable Perform hostname lookup via proxy and Use proxy for BitTorrent purposes. Leave Use proxy for peer connections disabled because XRatio handles tracker announces only.",
+                        "In XRatio Settings > Announce behavior, use Report download as zero or Pretend to seed only when that reporting mode is allowed for your test tracker; these options change the announce values and do not freeze a tracker-owned ratio.",
+                        "Click Apply, then OK. Check the Interception tab in XRatio for the next tracker announce.",
+                        "If the ratio still changes, check the port, proxy type and tracker policy. A proxy cannot force a tracker to accept or freeze a ratio."
+                    ],
+                    "avares://XRatio/Assets/qbittorrent-proxy-settings.png"),
+                new GuideSection(
                     "Keep the scope clear",
                     "XRatio listens locally and does not handle payload or peer traffic.",
-                    ["Keep Listen on localhost only enabled unless you have a specific, authorized reason to change the deployment boundary."])
+                    [
+                        "Keep Listen on localhost only enabled unless you have a specific, authorized reason to change the deployment boundary.",
+                        "Use only torrents and trackers for which you are authorized, and follow the tracker rules."
+                    ])
             ]),
         "Platform" => new(
             "Platform guide",
@@ -2224,9 +2300,7 @@ public sealed class MainWindow : Window
         _themeMode.SelectedIndex = 0;
         _themeMode.SelectionChanged += (_, _) =>
         {
-            ApplyTheme(
-                SelectedThemeMode(),
-                _accentColor.SelectedIndex == 1 ? AccentPalette.Teal : AccentPalette.Blue);
+            ApplyTheme(SelectedThemeMode(), SelectedAccentColor());
             if (!_suppressLanguageSelection)
                 MarkSettingsDirty();
         };
@@ -2235,26 +2309,58 @@ public sealed class MainWindow : Window
         _accentColor.SelectedIndex = 0;
         _accentColor.SelectionChanged += (_, _) =>
         {
-            ApplyTheme(
-                SelectedThemeMode(),
-                _accentColor.SelectedIndex == 1 ? AccentPalette.Teal : AccentPalette.Blue);
+            ApplyTheme(SelectedThemeMode(), SelectedAccentColor());
             if (!_suppressLanguageSelection)
                 MarkSettingsDirty();
         };
         ConfigureComboBox(_languageMode, 180);
-        _languageMode.ItemsSource = new[] { UiText.English, UiText.French };
+        _languageMode.ItemTemplate = new FuncDataTemplate<string>((value, _) => BuildLanguageOption(value));
+        _languageMode.ItemsSource = UiText.LanguageLabels;
         _languageMode.SelectedIndex = 0;
         _languageMode.SelectionChanged += (_, _) =>
         {
             if (_suppressLanguageSelection)
                 return;
-            _language = _languageMode.SelectedIndex == 1 ? UiText.French : UiText.English;
+            _language = SelectedLanguage();
             ApplyLocalization();
             RefreshTorrents();
             RefreshSimulationRows();
             MarkSettingsDirty();
         };
         HookSettingsDirtyState();
+
+        StyleButton(_checkUpdates, ButtonTone.Secondary, minWidth: 190);
+        _checkUpdates.Content = "Check for updates";
+        _checkUpdates.Click += async (_, _) => await CheckForUpdatesAsync(startup: false);
+        _updateStatus.Text = "Not checked yet";
+        _updateStatus.Foreground = XRatioPalette.Muted;
+        _updateStatus.FontSize = 12;
+        _updateStatus.VerticalAlignment = VerticalAlignment.Center;
+        _updateStatus.TextWrapping = Avalonia.Media.TextWrapping.Wrap;
+
+        var versionDisplay = new TextBlock
+        {
+            Text = AppVersion.Display,
+            Foreground = XRatioPalette.Accent,
+            FontSize = 13,
+            FontWeight = FontWeight.SemiBold,
+            FontFeatures = XRatioPalette.TabularNumbers,
+            VerticalAlignment = VerticalAlignment.Center,
+            Padding = new Thickness(0, 7)
+        };
+
+        var updates = BuildSettingsSection(
+            "Updates",
+            "Check the official GitHub release without changing files automatically.",
+            BuildSettingsBody(
+                BuildFieldGrid(("Current version", versionDisplay)),
+                new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 12,
+                    Children = { _checkUpdates, _updateStatus }
+                }),
+            bottomPadding: 10);
 
         var appearance = BuildSettingsSection(
             "Appearance",
@@ -2300,7 +2406,7 @@ public sealed class MainWindow : Window
         var content = new StackPanel
         {
             Spacing = 14,
-            Margin = new Thickness(28, 24, 28, 18),
+            Margin = new Thickness(28, 24, 28, 0),
             MaxWidth = 820,
             HorizontalAlignment = HorizontalAlignment.Left,
             Children =
@@ -2309,7 +2415,8 @@ public sealed class MainWindow : Window
                 appearance,
                 connection,
                 ratio,
-                announce
+                announce,
+                updates
             }
         };
         _settingsSaveStatus.Text = "Loading settings…";
@@ -2381,6 +2488,65 @@ public sealed class MainWindow : Window
             _settingsSaveStatus.Text = L(FriendlyValidationMessage(exception));
             _settingsSaveStatus.Foreground = XRatioPalette.Danger;
             _settingsSaveAction.IsEnabled = false;
+        }
+    }
+
+    private async Task CheckForUpdatesAsync(bool startup)
+    {
+        if (!await _updateCheckGate.WaitAsync(0))
+            return;
+
+        try
+        {
+            if (startup || !_exiting)
+                _updateStatus.Text = L("Checking for updates…");
+            _updateStatus.Foreground = XRatioPalette.Muted;
+            _checkUpdates.IsEnabled = false;
+            _latestReleaseUri = null;
+
+            using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(9));
+            var result = await UpdateChecker.CheckAsync(AppVersion.Current, cancellation.Token);
+            if (_exiting)
+                return;
+
+            if (result.Error is not null)
+            {
+                _updateStatus.Text = L("Unable to check for updates");
+                _updateStatus.Foreground = XRatioPalette.Warning;
+                return;
+            }
+
+            if (result.IsUpdateAvailable && result.LatestVersion is not null)
+            {
+                _latestReleaseUri = result.ReleaseUri;
+                _updateStatus.Text = string.Format(
+                    CultureInfo.CurrentCulture,
+                    L("Update available: {0}"),
+                    $"v{result.LatestVersion}");
+                _updateStatus.Foreground = XRatioPalette.Accent;
+                if (_latestReleaseUri is not null)
+                    ToolTip.SetTip(_updateStatus, _latestReleaseUri.ToString());
+            }
+            else
+            {
+                _updateStatus.Text = L("You are up to date");
+                _updateStatus.Foreground = XRatioPalette.Positive;
+                ToolTip.SetTip(_updateStatus, null);
+            }
+        }
+        catch (Exception) when (!_exiting)
+        {
+            _updateStatus.Text = L("Unable to check for updates");
+            _updateStatus.Foreground = XRatioPalette.Warning;
+        }
+        finally
+        {
+            if (!_exiting)
+            {
+                _checkUpdates.IsEnabled = true;
+                _checkUpdates.Content = L("Check for updates");
+            }
+            _updateCheckGate.Release();
         }
     }
 
@@ -2551,6 +2717,7 @@ public sealed class MainWindow : Window
             // Initialization can update bound controls asynchronously. Reassert
             // the clean baseline once the first runtime state is ready.
             MarkSettingsSaved();
+            _ = CheckForUpdatesAsync(startup: true);
             if (ShouldHideAfterStartup(
                     IsTrayAvailable(),
                     _settings.StartMinimized,
@@ -2601,9 +2768,13 @@ public sealed class MainWindow : Window
 
     public void ShowFromTray()
     {
+        if (_exiting)
+            return;
+
         _restoreRequested = true;
-        Show();
+        _tabs.SelectedIndex = 0;
         WindowState = WindowState.Normal;
+        Show();
         Activate();
     }
 
@@ -2623,6 +2794,7 @@ public sealed class MainWindow : Window
             ? "Rewriting paused; counters will not regress below previously reported values."
             : "Rewriting resumed.");
         UpdateOverviewMetrics();
+        NotifyRuntimeStateChanged();
     }
 
     public async Task PrepareForExitAsync()
@@ -2779,6 +2951,7 @@ public sealed class MainWindow : Window
             StyleButton(_toggle, ButtonTone.Danger, minWidth: 72);
             _status.Text = L($"HTTP/HTTPS active on 127.0.0.1:{_proxy.BoundPort}");
             UpdateOverviewMetrics();
+            NotifyRuntimeStateChanged();
         }
         catch
         {
@@ -2807,6 +2980,7 @@ public sealed class MainWindow : Window
         StyleButton(_toggle, ButtonTone.Primary, minWidth: 72);
         _status.Text = L("Proxy stopped");
         UpdateOverviewMetrics();
+        NotifyRuntimeStateChanged();
     }
 
     private void ShowStartupFailure(Exception exception)
@@ -2820,7 +2994,11 @@ public sealed class MainWindow : Window
         _toggle.Content = L("Retry");
         AddActivity($"Startup error: {detail}", ActivityLevel.Error, "Startup");
         UpdateOverviewMetrics();
+        NotifyRuntimeStateChanged();
     }
+
+    private void NotifyRuntimeStateChanged() =>
+        RuntimeStateChanged?.Invoke(IsProxyRunning, IsProxyPaused);
 
     private void ClearStartupFailure()
     {
@@ -3221,12 +3399,11 @@ public sealed class MainWindow : Window
     {
         _themeMode.SelectedIndex = NormalizeThemeMode(settings.ThemeMode) switch
         {
-            ThemePalette.Dim => 1,
-            ThemePalette.Dark => 2,
+            var mode when ThemePalette.IndexOf(mode) >= 0 => ThemePalette.IndexOf(mode),
             _ => 0
         };
-        _accentColor.SelectedIndex = NormalizeAccentColor(settings.AccentColor) == AccentPalette.Teal ? 1 : 0;
-        _languageMode.SelectedIndex = UiText.Normalize(settings.Language) == UiText.French ? 1 : 0;
+        _accentColor.SelectedIndex = Math.Max(0, AccentPalette.IndexOf(NormalizeAccentColor(settings.AccentColor)));
+        _languageMode.SelectedIndex = UiText.IndexOf(settings.Language);
         _port.Text = settings.ListenPort.ToString(CultureInfo.InvariantCulture);
         _minimumPeers.Text = settings.MinimumPeers.ToString(CultureInfo.InvariantCulture);
         _downloadRatioMin.Text = settings.UploadPerDownloadMinimum.ToString(CultureInfo.InvariantCulture);
@@ -3247,8 +3424,8 @@ public sealed class MainWindow : Window
     private XRatioSettings ReadForm() => _settings with
     {
         ThemeMode = SelectedThemeMode(),
-        AccentColor = _accentColor.SelectedIndex == 1 ? AccentPalette.Teal : AccentPalette.Blue,
-        Language = _languageMode.SelectedIndex == 1 ? UiText.French : UiText.English,
+        AccentColor = SelectedAccentColor(),
+        Language = UiText.Normalize(_language),
         ListenPort = ParseInt(_port, "HTTP proxy port"),
         MinimumPeers = ParseInt(_minimumPeers, "Minimum leechers"),
         UploadPerDownloadMinimum = ParseDouble(_downloadRatioMin, "Upload/download minimum"),
@@ -3407,13 +3584,17 @@ public sealed class MainWindow : Window
         };
     }
 
-    private static Border BuildSettingsSection(string title, string subtitle, Control body)
+    private static Border BuildSettingsSection(
+        string title,
+        string subtitle,
+        Control body,
+        double bottomPadding = 22)
     {
         return new Border
         {
             BorderBrush = XRatioPalette.Border,
             BorderThickness = new Thickness(0, 1, 0, 0),
-            Padding = new Thickness(0, 18, 0, 22),
+            Padding = new Thickness(0, 18, 0, bottomPadding),
             Margin = new Thickness(0),
             Child = new StackPanel
             {
@@ -3748,6 +3929,145 @@ public sealed class MainWindow : Window
         comboBox.HorizontalAlignment = HorizontalAlignment.Left;
     }
 
+    private static Control BuildLanguageOption(string? value)
+    {
+        var index = UiText.LanguageIndex(value);
+        return new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 8,
+            VerticalAlignment = VerticalAlignment.Center,
+            Children =
+            {
+                BuildFlagIcon(UiText.FlagCodeAt(index)),
+                new TextBlock
+                {
+                    Text = UiText.DisplayNameAt(index),
+                    Foreground = XRatioPalette.Ink,
+                    VerticalAlignment = VerticalAlignment.Center
+                }
+            }
+        };
+    }
+
+    private static Control BuildFlagIcon(string code)
+    {
+        const double width = 22;
+        const double height = 14;
+        var canvas = new Canvas
+        {
+            Width = width,
+            Height = height,
+            ClipToBounds = true,
+            Margin = new Thickness(0, 0, 1, 0),
+            IsHitTestVisible = false
+        };
+
+        void Add(Control control, double left = 0, double top = 0)
+        {
+            Canvas.SetLeft(control, left);
+            Canvas.SetTop(control, top);
+            canvas.Children.Add(control);
+        }
+
+        Border Block(string color, double blockWidth = width, double blockHeight = height) =>
+            new()
+            {
+                Background = new SolidColorBrush(Color.Parse(color)),
+                Width = blockWidth,
+                Height = blockHeight
+            };
+
+        void Band(string color, double top, double bandHeight) => Add(Block(color, width, bandHeight), 0, top);
+
+        switch (code)
+        {
+            case "US":
+                Add(Block("#FFFFFF"));
+                for (var stripe = 0; stripe < 7; stripe++)
+                    Band(stripe % 2 == 0 ? "#C83B45" : "#FFFFFF", stripe * 2, 2);
+                Add(Block("#315AA8", 10, 8));
+                break;
+            case "FR":
+                Add(Block("#315AA8", 7, height));
+                Add(Block("#FFFFFF", 8, height), 7);
+                Add(Block("#C83B45", 7, height), 15);
+                break;
+            case "ES":
+                Band("#C83B45", 0, 3);
+                Band("#F1C453", 3, 8);
+                Band("#C83B45", 11, 3);
+                break;
+            case "DE":
+                Band("#20242B", 0, 4.67);
+                Band("#C84A4A", 4.67, 4.67);
+                Band("#E4B84C", 9.34, 4.66);
+                break;
+            case "IT":
+                Add(Block("#4B9B6B", 7, height));
+                Add(Block("#FFFFFF", 8, height), 7);
+                Add(Block("#C83B45", 7, height), 15);
+                break;
+            case "PT":
+                Add(Block("#3D8D62", 8, height));
+                Add(Block("#C83B45", 14, height), 8);
+                Add(new Border
+                {
+                    Background = new SolidColorBrush(Color.Parse("#F1C453")),
+                    Width = 5,
+                    Height = 5,
+                    CornerRadius = new CornerRadius(3)
+                }, 6, 4.5);
+                break;
+            case "JP":
+                Add(Block("#FFFFFF"));
+                Add(new Border
+                {
+                    Background = new SolidColorBrush(Color.Parse("#C83B45")),
+                    Width = 8,
+                    Height = 8,
+                    CornerRadius = new CornerRadius(4)
+                }, 7, 3);
+                break;
+            case "CN":
+                Add(Block("#C83B45"));
+                Add(new TextBlock
+                {
+                    Text = "★",
+                    Foreground = new SolidColorBrush(Color.Parse("#F1C453")),
+                    FontSize = 8,
+                    FontWeight = FontWeight.Bold,
+                    Width = 9,
+                    Height = 9,
+                    TextAlignment = TextAlignment.Center
+                }, 2, 1);
+                break;
+            case "SA":
+                Add(Block("#2F8A68"));
+                Add(Block("#FFFFFF", 12, 1), 5, 7);
+                break;
+            case "RU":
+                Band("#FFFFFF", 0, 4.67);
+                Band("#3F68A8", 4.67, 4.67);
+                Band("#C83B45", 9.34, 4.66);
+                break;
+            default:
+                Add(Block("#8994A6"));
+                break;
+        }
+
+        Add(new Border
+        {
+            Width = width,
+            Height = height,
+            BorderBrush = new SolidColorBrush(Color.Parse("#728096")),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(2),
+            Background = Brushes.Transparent
+        });
+        return canvas;
+    }
+
     private static void ConfigureCheckBox(CheckBox checkBox)
     {
         checkBox.Foreground = XRatioPalette.Ink;
@@ -3879,6 +4199,10 @@ public sealed class MainWindow : Window
         public static readonly SolidColorBrush Canvas = Brush("#F4F6FA");
         public static readonly SolidColorBrush Topbar = Brush("#FFFFFF");
         public static readonly SolidColorBrush Sidebar = Brush("#E9EEF7");
+        public static readonly SolidColorBrush NavCanvas = Brush("#F4F6FA");
+        public static readonly SolidColorBrush NavPanel = Brush("#FFFFFF");
+        public static readonly SolidColorBrush NavBorder = Brush("#D8E1EC");
+        public static readonly SolidColorBrush NavSelected = Brush("#E7EDF3");
         public static readonly SolidColorBrush Surface = Brush("#FFFFFF");
         public static readonly SolidColorBrush SurfaceRaised = Brush("#F8FAFD");
         public static readonly SolidColorBrush MetricSurface = Brush("#F3F6FA");
@@ -3904,26 +4228,34 @@ public sealed class MainWindow : Window
             var normalized = ThemePalette.Normalize(themeMode);
             var dark = normalized == ThemePalette.Dark;
             var dim = normalized == ThemePalette.Dim;
-            Set(Canvas, dark ? "#0B1120" : dim ? "#253247" : "#F4F6FA");
-            Set(Topbar, dark ? "#101827" : dim ? "#2D3A50" : "#FFFFFF");
-            Set(Sidebar, dark ? "#0D1625" : dim ? "#202C40" : "#E9EEF7");
-            Set(Surface, dark ? "#131F30" : dim ? "#31405A" : "#FFFFFF");
-            Set(SurfaceRaised, dark ? "#172638" : dim ? "#384963" : "#F8FAFD");
-            Set(MetricSurface, dark ? "#0F1A29" : dim ? "#2B3950" : "#F3F6FA");
-            Set(Ink, dark ? "#F4F8FD" : dim ? "#F2F6FB" : "#122034");
-            Set(Muted, dark ? "#9FB2C8" : dim ? "#C0CBD9" : "#5C6B7E");
-            Set(Subtle, dark ? "#7086A0" : dim ? "#A7B5C8" : "#74849A");
-            Set(Border, dark ? "#25364A" : dim ? "#52637A" : "#D8E1EC");
-            Set(Accent, AccentPalette.Primary(accentColor, dark, dim));
-            Set(AccentSoft, AccentPalette.Soft(accentColor, dark, dim));
-            Set(Positive, dark ? "#61E6B0" : dim ? "#66D9B0" : "#0B8F68");
-            Set(PositiveSoft, dark ? "#153A34" : dim ? "#244C44" : "#DCF7EB");
-            Set(Warning, dark ? "#F3C56C" : dim ? "#F4C66E" : "#A66A00");
-            Set(Danger, dark ? "#FF7A8A" : dim ? "#FF8997" : "#B42333");
-            Set(DangerSoft, dark ? "#40222B" : dim ? "#59323D" : "#FDE9EC");
-            Set(DangerBorder, dark ? "#7D3848" : dim ? "#A85E6C" : "#E9A9B2");
-            Set(NeutralSoft, dark ? "#243449" : dim ? "#3A4A61" : "#E7EDF3");
-            Set(OnAccent, dark ? "#07151A" : dim ? "#081425" : "#FFFFFF");
+            var softDark = normalized == ThemePalette.SoftDark;
+            Set(Canvas, dark ? "#0B1120" : softDark ? "#171A20" : dim ? "#253247" : "#F4F6FA");
+            Set(Topbar, dark ? "#101827" : softDark ? "#1D2129" : dim ? "#2D3A50" : "#FFFFFF");
+            Set(Sidebar, dark ? "#0D1625" : softDark ? "#20252E" : dim ? "#202C40" : "#E9EEF7");
+            // The navigation rail is part of the same open canvas as the work
+            // area. Keep the inset rounded panel as the only navigation
+            // surface so dark themes do not show a hard vertical color seam.
+            Set(NavCanvas, dark ? "#0B1120" : softDark ? "#171A20" : dim ? "#253247" : "#F4F6FA");
+            Set(NavPanel, dark || dim ? "#171717" : softDark ? "#1B1E24" : "#FFFFFF");
+            Set(NavBorder, dark || dim ? "#2A2A2A" : softDark ? "#343A44" : "#D8E1EC");
+            Set(NavSelected, dark || dim ? "#2B2B2B" : softDark ? "#2A3038" : "#E7EDF3");
+            Set(Surface, dark ? "#131F30" : softDark ? "#242A33" : dim ? "#31405A" : "#FFFFFF");
+            Set(SurfaceRaised, dark ? "#172638" : softDark ? "#2A303A" : dim ? "#384963" : "#F8FAFD");
+            Set(MetricSurface, dark ? "#0F1A29" : softDark ? "#1F252E" : dim ? "#2B3950" : "#F3F6FA");
+            Set(Ink, dark ? "#F4F8FD" : softDark ? "#E9EDF3" : dim ? "#F2F6FB" : "#122034");
+            Set(Muted, dark ? "#9FB2C8" : softDark ? "#B6C0CE" : dim ? "#C0CBD9" : "#5C6B7E");
+            Set(Subtle, dark ? "#7086A0" : softDark ? "#929EAE" : dim ? "#A7B5C8" : "#74849A");
+            Set(Border, dark ? "#25364A" : softDark ? "#3A424F" : dim ? "#52637A" : "#D8E1EC");
+            Set(Accent, AccentPalette.Primary(accentColor, dark, dim, softDark));
+            Set(AccentSoft, AccentPalette.Soft(accentColor, dark, dim, softDark));
+            Set(Positive, dark ? "#61E6B0" : softDark ? "#70D6A5" : dim ? "#66D9B0" : "#0B8F68");
+            Set(PositiveSoft, dark ? "#153A34" : softDark ? "#214238" : dim ? "#244C44" : "#DCF7EB");
+            Set(Warning, dark ? "#F3C56C" : softDark ? "#E6BF74" : dim ? "#F4C66E" : "#A66A00");
+            Set(Danger, dark ? "#FF7A8A" : softDark ? "#F099A8" : dim ? "#FF8997" : "#B42333");
+            Set(DangerSoft, dark ? "#40222B" : softDark ? "#4A2D35" : dim ? "#59323D" : "#FDE9EC");
+            Set(DangerBorder, dark ? "#7D3848" : softDark ? "#955463" : dim ? "#A85E6C" : "#E9A9B2");
+            Set(NeutralSoft, dark ? "#243449" : softDark ? "#303740" : dim ? "#3A4A61" : "#E7EDF3");
+            Set(OnAccent, dark ? "#07151A" : softDark ? "#10161D" : dim ? "#081425" : "#FFFFFF");
         }
 
         private static SolidColorBrush Brush(string hex) =>
@@ -3933,14 +4265,172 @@ public sealed class MainWindow : Window
             brush.Color = Color.Parse(hex);
     }
 
-    private static Control BuildNavHeader(string glyph, string label)
+    private Control BuildNavigation()
     {
+        var panel = BuildNavigationPanel(
+            BuildNavigationGroup(
+                "Monitoring",
+                divider: false,
+                (0, "\uE80F", "Overview"),
+                (1, "\uE895", "Interception")),
+            BuildNavigationGroup(
+                "Control",
+                divider: true,
+                (2, "\uE768", "Simulation"),
+                (3, "\uE81C", "Activity")),
+            BuildNavigationGroup(
+                "System",
+                divider: true,
+                (4, "\uE713", "Settings"),
+                (5, "\uE83D", "Platform")),
+            BuildNavigationGroup(
+                "Support",
+                divider: true,
+                (null, "\uE897", "Guide")));
+
         return new Border
+        {
+            Width = 250,
+            Background = XRatioPalette.NavCanvas,
+            BorderBrush = Brushes.Transparent,
+            BorderThickness = new Thickness(0),
+            Padding = new Thickness(14, 8, 14, 0),
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Stretch,
+            Child = panel
+        };
+    }
+
+    private Border BuildNavigationPanel(params Control[] groups)
+    {
+        var upperGroups = new StackPanel { Spacing = 0 };
+        foreach (var group in groups.Take(Math.Max(0, groups.Length - 1)))
+            upperGroups.Children.Add(group);
+
+        var content = new Grid
+        {
+            RowDefinitions = new RowDefinitions("*,Auto"),
+            Children =
+            {
+                upperGroups,
+                Place(groups[^1], row: 1)
+            }
+        };
+
+        return new Border
+        {
+            Background = XRatioPalette.NavPanel,
+            BorderBrush = XRatioPalette.NavBorder,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(18),
+            Padding = new Thickness(8, 10, 8, 12),
+            MinHeight = 390,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Stretch,
+            Child = content
+        };
+    }
+
+    private StackPanel BuildNavigationGroup(
+        string section,
+        bool divider,
+        params (int? Index, string Glyph, string Label)[] items)
+    {
+        var group = new StackPanel { Spacing = 0 };
+        group.Children.Add(BuildNavigationSection(section, divider));
+        foreach (var (index, glyph, label) in items)
+            group.Children.Add(BuildNavigationButton(index, glyph, label));
+        return group;
+    }
+
+    private static StackPanel BuildNavigationSection(string section, bool divider)
+    {
+        var header = new StackPanel
+        {
+            Spacing = 5,
+            Margin = new Thickness(4, divider ? 16 : 5, 4, 4)
+        };
+        if (divider)
+        {
+            header.Children.Add(new Border
+            {
+                Tag = "NavDivider",
+                Height = 1,
+                Background = XRatioPalette.NavBorder,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                Margin = new Thickness(0, 0, 0, 3)
+            });
+        }
+
+        header.Children.Add(new TextBlock
+        {
+            Tag = "NavSection",
+            Text = section,
+            FontSize = 10,
+            FontWeight = FontWeight.SemiBold,
+            Foreground = XRatioPalette.Subtle,
+            LetterSpacing = 0.2,
+            VerticalAlignment = VerticalAlignment.Center
+        });
+        return header;
+    }
+
+    private Button BuildNavigationButton(int? index, string glyph, string label)
+    {
+        var row = BuildNavRow(glyph, label);
+        var button = new Button
+        {
+            Tag = index is int tabIndex ? tabIndex : "GuideAction",
+            Content = row,
+            Background = Brushes.Transparent,
+            BorderBrush = Brushes.Transparent,
+            BorderThickness = new Thickness(0),
+            CornerRadius = new CornerRadius(10),
+            Padding = new Thickness(0),
+            Margin = new Thickness(0, 2),
+            MinHeight = 44,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            VerticalContentAlignment = VerticalAlignment.Stretch
+        };
+        button.Classes.Add("nav-button");
+        button.Styles.Add(new Style(selector =>
+            selector.OfType<Button>().Class("nav-button").Class(":pointerover"))
+        {
+            Setters =
+            {
+                new Setter(Button.BackgroundProperty, Brushes.Transparent),
+                new Setter(Button.BorderBrushProperty, XRatioPalette.NavBorder)
+            }
+        });
+        button.Styles.Add(new Style(selector =>
+            selector.OfType<Button>().Class("nav-button").Class(":focus-visible"))
+        {
+            Setters =
+            {
+                new Setter(Button.BorderBrushProperty, XRatioPalette.Accent),
+                new Setter(Button.BorderThicknessProperty, new Thickness(1))
+            }
+        });
+        button.Click += async (_, _) =>
+        {
+            if (index is int tabIndex)
+                _tabs.SelectedIndex = tabIndex;
+            else
+                await ShowGuideAsync(_tabs);
+        };
+        _navigationItems.Add((button, row));
+        return button;
+    }
+
+    private static Border BuildNavRow(string glyph, string label) =>
+        new()
         {
             Tag = "NavRow",
             Padding = new Thickness(12, 8, 12, 8),
             MinHeight = 44,
-            CornerRadius = new CornerRadius(6),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            CornerRadius = new CornerRadius(10),
             BorderBrush = Brushes.Transparent,
             BorderThickness = new Thickness(0),
             Child = new StackPanel
@@ -3973,15 +4463,78 @@ public sealed class MainWindow : Window
                 }
             }
         };
+
+    private static Control BuildNavHeader(
+        string glyph,
+        string label,
+        string? section = null,
+        bool divider = false)
+    {
+        var row = BuildNavRow(glyph, label);
+
+        if (string.IsNullOrWhiteSpace(section))
+            return row;
+
+        var sectionHeader = new StackPanel
+        {
+            Spacing = 5,
+            Margin = new Thickness(4, divider ? 12 : 5, 4, 4)
+        };
+        if (divider)
+        {
+            sectionHeader.Children.Add(new Border
+            {
+                Tag = "NavDivider",
+                Height = 1,
+                Background = XRatioPalette.Border,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                Margin = new Thickness(0, 0, 0, 3)
+            });
+        }
+
+        sectionHeader.Children.Add(new TextBlock
+        {
+            Tag = "NavSection",
+            Text = section,
+            FontSize = 10,
+            FontWeight = FontWeight.SemiBold,
+            Foreground = XRatioPalette.Subtle,
+            LetterSpacing = 0.2,
+            VerticalAlignment = VerticalAlignment.Center
+        });
+
+        return new StackPanel
+        {
+            Spacing = 0,
+            Children = { sectionHeader, row }
+        };
     }
 
-    private static TabItem CreateTabItem(string glyph, string header, Control content) =>
+    private static TabItem CreateTabItem(
+        string glyph,
+        string header,
+        Control content,
+        string? section = null,
+        bool divider = false) =>
         new()
         {
-            Header = BuildNavHeader(glyph, header),
+            Header = BuildNavHeader(glyph, header, section, divider),
             Tag = header,
             Content = content,
-            MinWidth = 200,
+            Template = new FuncControlTemplate<TabItem>((tab, _) => new Border
+            {
+                Background = Brushes.Transparent,
+                BorderBrush = Brushes.Transparent,
+                BorderThickness = new Thickness(0),
+                Child = new ContentPresenter
+                {
+                    Name = "PART_HeaderPresenter",
+                    Content = tab.Header,
+                    HorizontalContentAlignment = HorizontalAlignment.Stretch,
+                    VerticalContentAlignment = VerticalAlignment.Stretch
+                }
+            }),
+            MinWidth = 184,
             MinHeight = 44,
             Margin = new Thickness(8, 1, 8, 1),
             Padding = new Thickness(0),
@@ -4091,7 +4644,8 @@ public sealed class MainWindow : Window
     private sealed record GuideSection(
         string Title,
         string Description,
-        IReadOnlyList<string> Steps);
+        IReadOnlyList<string> Steps,
+        string? ImageAsset = null);
 
     private sealed record SimulationRow(SimulationSnapshot Snapshot)
     {

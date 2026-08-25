@@ -29,6 +29,7 @@ public sealed class App : Application
         var normalizedTheme = ThemePalette.Normalize(themeMode);
         var dark = normalizedTheme == ThemePalette.Dark;
         var dim = normalizedTheme == ThemePalette.Dim;
+        var softDark = normalizedTheme == ThemePalette.SoftDark;
         var normalizedAccent = AccentPalette.Normalize(accentColor);
         if (Current is not { } application)
             return;
@@ -36,9 +37,9 @@ public sealed class App : Application
         application.RequestedThemeVariant = ThemePalette.UsesDarkControls(normalizedTheme)
             ? ThemeVariant.Dark
             : ThemeVariant.Light;
-        application.Resources["SystemAccentColor"] = Color.Parse(AccentPalette.Primary(normalizedAccent, dark, dim));
-        application.Resources["SystemAccentColorLight1"] = Color.Parse(AccentPalette.Light1(normalizedAccent, dark, dim));
-        application.Resources["SystemAccentColorDark1"] = Color.Parse(AccentPalette.Dark1(normalizedAccent, dark, dim));
+        application.Resources["SystemAccentColor"] = Color.Parse(AccentPalette.Primary(normalizedAccent, dark, dim, softDark));
+        application.Resources["SystemAccentColorLight1"] = Color.Parse(AccentPalette.Light1(normalizedAccent, dark, dim, softDark));
+        application.Resources["SystemAccentColorDark1"] = Color.Parse(AccentPalette.Dark1(normalizedAccent, dark, dim, softDark));
     }
 
     public override void OnFrameworkInitializationCompleted()
@@ -61,6 +62,7 @@ public sealed class App : Application
                 debugLogger,
                 simulationStore);
             desktop.MainWindow = window;
+            Program.StartActivationListener(window);
             // The Windows tray path is validated end-to-end. Keep non-Windows
             // backends window-only until their native tray integration is tested.
             if (ShouldCreateTrayIcon(OperatingSystem.IsWindows()))
@@ -76,13 +78,22 @@ public sealed class App : Application
         var tray = new TrayIcon
         {
             Icon = CreateAppIcon(),
-            ToolTipText = "XRatio",
+            ToolTipText = FormatTrayToolTip(window.IsProxyRunning, window.IsProxyPaused),
             Menu = BuildTrayMenu(window),
             IsVisible = true
         };
+        window.RuntimeStateChanged += (isRunning, isPaused) =>
+            tray.ToolTipText = FormatTrayToolTip(isRunning, isPaused);
         tray.Clicked += (_, _) => window.ShowFromTray();
         return tray;
     }
+
+    internal static string FormatTrayToolTip(bool isRunning, bool isPaused) =>
+        !isRunning
+            ? "XRatio — OFF"
+            : isPaused
+                ? "XRatio — ON (paused)"
+                : "XRatio — ON";
 
     internal static WindowIcon CreateAppIcon()
     {

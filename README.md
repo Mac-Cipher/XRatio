@@ -27,7 +27,7 @@ XRatio is a Windows-first .NET 10 / Avalonia desktop application for people who 
 | **Interception** | Inspect real and rewritten announce counters, peers, status, and last announce per info-hash. |
 | **Simulation** | Load a `.torrent`, choose a tracker and client profile, configure speeds, then control a session explicitly. |
 | **Activity** | Follow proxy and simulation events without digging through raw logs. |
-| **Settings** | Configure language, light/dim/dark theme, blue or teal accent, ratio rules, FreeLeech, Pretend-to-Seed, logging, and autostart. |
+| **Settings** | Configure language, themes, accents, ratio rules, logging, autostart, and check the installed version against the official GitHub release. |
 | **Platform** | Opt in to HTTPS interception and manage the local CA trust for the current Windows user. |
 
 ## Design principles

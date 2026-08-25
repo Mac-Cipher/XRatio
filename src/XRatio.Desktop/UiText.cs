@@ -4,18 +4,79 @@ internal static class UiText
 {
     public const string English = "English";
     public const string French = "French";
+    public const string Spanish = "Spanish";
+    public const string German = "German";
+    public const string Italian = "Italian";
+    public const string Portuguese = "Portuguese";
+    public const string Japanese = "Japanese";
+    public const string Chinese = "Chinese";
+    public const string Arabic = "Arabic";
+    public const string Russian = "Russian";
+
+    public static readonly IReadOnlyList<string> LanguageCodes =
+    [
+        English,
+        French,
+        Spanish,
+        German,
+        Italian,
+        Portuguese,
+        Japanese,
+        Chinese,
+        Arabic,
+        Russian
+    ];
+
+    public static readonly IReadOnlyList<string> LanguageLabels =
+    [
+        "🇺🇸 English",
+        "🇫🇷 Français",
+        "🇪🇸 Español",
+        "🇩🇪 Deutsch",
+        "🇮🇹 Italiano",
+        "🇵🇹 Português",
+        "🇯🇵 日本語",
+        "🇨🇳 中文",
+        "🇸🇦 العربية",
+        "🇷🇺 Русский"
+    ];
+
+    // Keep the display data separate from the emoji labels above. Avalonia can
+    // render regional-indicator emoji as two letters on Windows, so the actual
+    // ComboBox template draws these flag codes as small vector-like controls.
+    public static readonly IReadOnlyList<string> LanguageFlagCodes =
+    [
+        "US", "FR", "ES", "DE", "IT", "PT", "JP", "CN", "SA", "RU"
+    ];
+
+    public static readonly IReadOnlyList<string> LanguageDisplayNames =
+    [
+        "English", "Français", "Español", "Deutsch", "Italiano", "Português", "日本語", "中文", "العربية", "Русский"
+    ];
 
     private static readonly IReadOnlyDictionary<string, string> FrenchMap =
         new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["English"] = "Anglais",
             ["French"] = "Français",
+            ["Spanish"] = "Espagnol",
+            ["German"] = "Allemand",
+            ["Italian"] = "Italien",
+            ["Portuguese"] = "Portugais",
+            ["Japanese"] = "Japonais",
+            ["Chinese"] = "Chinois",
+            ["Arabic"] = "Arabe",
+            ["Russian"] = "Russe",
             ["Overview"] = "Vue d’ensemble",
             ["Interception"] = "Interception",
             ["Simulation"] = "Simulation",
             ["Activity"] = "Activité",
             ["Settings"] = "Réglages",
             ["Platform"] = "Plateforme",
+            ["Monitoring"] = "Supervision",
+            ["Control"] = "Contrôle",
+            ["System"] = "Système",
+            ["Support"] = "Assistance",
             ["Guide"] = "Guide",
             ["LOCAL RATIO CONTROL"] = "CONTRÔLE RATIO LOCAL",
             ["LOCAL / MONITORING"] = "LOCAL / SUPERVISION",
@@ -125,15 +186,29 @@ internal static class UiText
             ["Hash · tracker · peers · status · transfer counters · last announce"] = "Hash · tracker · pairs · état · compteurs de transfert · dernière annonce",
             ["Tracked sessions stay visible here as announcements arrive."] = "Les sessions suivies restent visibles ici à mesure que les annonces arrivent.",
             ["Appearance"] = "Apparence",
+            ["Updates"] = "Mises à jour",
+            ["Check the official GitHub release without changing files automatically."] = "Vérifiez la release officielle GitHub sans modifier automatiquement les fichiers.",
+            ["Current version"] = "Version actuelle",
+            ["Check for updates"] = "Rechercher les mises à jour",
+            ["Not checked yet"] = "Pas encore vérifié",
+            ["Checking for updates…"] = "Recherche de mises à jour…",
+            ["You are up to date"] = "Vous utilisez la dernière version",
+            ["Unable to check for updates"] = "Impossible de rechercher les mises à jour",
+            ["Update available: {0}"] = "Mise à jour disponible : {0}",
             ["Theme"] = "Thème",
             ["Light"] = "Clair",
             ["Dim"] = "Sombre doux",
+            ["Soft Dark"] = "Sombre feutré",
             ["Dark"] = "Sombre",
             ["Accent color"] = "Couleur d’accentuation",
             ["Blue"] = "Bleu",
             ["Teal"] = "Turquoise",
+            ["Violet"] = "Violet",
+            ["Amber"] = "Ambre",
+            ["Rose"] = "Rose",
+            ["Green"] = "Vert",
             ["Language"] = "Langue",
-            ["Choose the visual mode and signal color for the XRatio control plane. Blue is the default; the hierarchy stays the same in all themes."] = "Choisissez le mode visuel et la couleur de signal du plan de contrôle XRatio. Le bleu est utilisé par défaut ; la hiérarchie reste identique dans les trois thèmes.",
+            ["Choose the visual mode and signal color for the XRatio control plane. Blue is the default; the hierarchy stays the same in all themes."] = "Choisissez le mode visuel et la couleur de signal du plan de contrôle XRatio. Le bleu est utilisé par défaut ; la hiérarchie reste identique dans tous les thèmes.",
             ["Choose the language used by the XRatio interface."] = "Choisissez la langue de l’interface XRatio.",
             ["Connection"] = "Connexion",
             ["Use a free localhost port from 1 to 65534. Minimum leechers must be between 0 and 100."] = "Utilisez un port localhost libre de 1 à 65534. Le nombre minimal de leechers doit être compris entre 0 et 100.",
@@ -240,8 +315,18 @@ internal static class UiText
             ["Read the latest events"] = "Lire les derniers événements",
             ["Change a value"] = "Modifier une valeur",
             ["Edit the fields, review the toggles, then click Save changes in the Settings tab."] = "Modifiez les champs, vérifiez les options, puis cliquez sur Enregistrer dans l’onglet Réglages.",
+            ["Keep the qBittorrent ratio stable"] = "Garder le ratio qBittorrent stable",
+            ["Route qBittorrent tracker announces through the local XRatio proxy before checking the ratio."] = "Faites passer les annonces des trackers qBittorrent par le proxy local XRatio avant de vérifier le ratio.",
+            ["Start XRatio and verify that the header shows HTTP/HTTPS active on 127.0.0.1:3773."] = "Démarrez XRatio et vérifiez que l’en-tête indique HTTP/HTTPS actif sur 127.0.0.1:3773.",
+            ["In qBittorrent, open Tools > Options > Connection."] = "Dans qBittorrent, ouvrez Outils > Options > Connexion.",
+            ["Under Proxy Server, choose HTTP, set Host to 127.0.0.1 and Port to 3773."] = "Dans Proxy Server, choisissez HTTP, indiquez 127.0.0.1 comme hôte et 3773 comme port.",
+            ["Enable Perform hostname lookup via proxy and Use proxy for BitTorrent purposes. Leave Use proxy for peer connections disabled because XRatio handles tracker announces only."] = "Activez Perform hostname lookup via proxy et Use proxy for BitTorrent purposes. Laissez Use proxy for peer connections désactivé, car XRatio ne traite que les annonces des trackers.",
+            ["In XRatio Settings > Announce behavior, use Report download as zero or Pretend to seed only when that reporting mode is allowed for your test tracker; these options change the announce values and do not freeze a tracker-owned ratio."] = "Dans Réglages XRatio > Comportement des annonces, utilisez Annoncer un téléchargement nul ou Simuler le seeding uniquement si ce mode est autorisé par votre tracker de test ; ces options modifient les valeurs annoncées et ne figent pas un ratio détenu par le tracker.",
+            ["Click Apply, then OK. Check the Interception tab in XRatio for the next tracker announce."] = "Cliquez sur Apply, puis sur OK. Vérifiez l’onglet Interception de XRatio à la prochaine annonce du tracker.",
+            ["If the ratio still changes, check the port, proxy type and tracker policy. A proxy cannot force a tracker to accept or freeze a ratio."] = "Si le ratio change encore, vérifiez le port, le type de proxy et la politique du tracker. Un proxy ne peut pas obliger un tracker à accepter ou à figer un ratio.",
             ["Keep the scope clear"] = "Garder le périmètre clair",
             ["Keep Listen on localhost only enabled unless you have a specific, authorized reason to change the deployment boundary."] = "Laissez Écouter uniquement sur localhost activé, sauf raison précise et autorisée de modifier la limite d’exposition.",
+            ["Use only torrents and trackers for which you are authorized, and follow the tracker rules."] = "Utilisez uniquement des torrents et des trackers pour lesquels vous êtes autorisé, et respectez les règles du tracker.",
             ["Startup behavior"] = "Comportement au démarrage",
             ["Safety note"] = "Note de sécurité",
             ["Use simulation only with torrents and trackers for which you are authorized."] = "Utilisez la simulation uniquement avec des torrents et des trackers pour lesquels vous êtes autorisé.",
@@ -277,17 +362,230 @@ internal static class UiText
             ["Multipliers and boost values cannot be negative."] = "Les multiplicateurs et valeurs de boost ne peuvent pas être négatifs."
         };
 
-    private static readonly IReadOnlyDictionary<string, string> EnglishMap =
-        FrenchMap.ToDictionary(pair => pair.Value, pair => pair.Key, StringComparer.Ordinal);
+    private static readonly IReadOnlyDictionary<string, string> SpanishMap =
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["English"] = "Inglés", ["French"] = "Francés", ["Spanish"] = "Español", ["German"] = "Alemán",
+            ["Italian"] = "Italiano", ["Portuguese"] = "Portugués", ["Japanese"] = "Japonés", ["Chinese"] = "Chino",
+            ["Arabic"] = "Árabe", ["Russian"] = "Ruso", ["Overview"] = "Vista general", ["Interception"] = "Interceptación",
+            ["Simulation"] = "Simulación", ["Activity"] = "Actividad", ["Settings"] = "Ajustes", ["Platform"] = "Plataforma",
+            ["Monitoring"] = "Supervisión", ["Control"] = "Control", ["System"] = "Sistema", ["Support"] = "Ayuda", ["Guide"] = "Guía",
+            ["LOCAL RATIO CONTROL"] = "CONTROL DE RATIO LOCAL", ["LOCAL / MONITORING"] = "LOCAL / SUPERVISIÓN",
+            ["Loading configuration…"] = "Cargando configuración…", ["Start"] = "Iniciar", ["Stop"] = "Detener", ["Retry"] = "Reintentar",
+            ["Pause"] = "Pausa", ["Resume"] = "Reanudar", ["Save changes"] = "Guardar cambios", ["To tray"] = "Minimizar a la bandeja",
+            ["Close"] = "Cerrar", ["Open Settings"] = "Abrir ajustes", ["Current runtime status."] = "Estado actual del servicio.",
+            ["PROXY CHANNEL"] = "CANAL PROXY", ["Local tracker interception · HTTP / HTTPS"] = "Interceptación local de trackers · HTTP / HTTPS",
+            ["Tracked torrents"] = "Torrents seguidos", ["Announcements observed"] = "Anuncios observados", ["Simulations"] = "Simulaciones",
+            ["Active / configured"] = "Activas / configuradas", ["Reported upload"] = "Upload anunciado", ["Current session"] = "Sesión actual",
+            ["OPERATING MODES"] = "MODOS DE OPERACIÓN", ["Two paths, one local control plane."] = "Dos rutas, un solo plano de control local.",
+            ["Tracker announces only — payloads and peer traffic remain untouched."] = "Solo anuncios de trackers — los payloads y el tráfico entre pares permanecen intactos.",
+            ["Appearance"] = "Apariencia", ["Updates"] = "Actualizaciones", ["Check the official GitHub release without changing files automatically."] = "Busca la versión oficial de GitHub sin cambiar archivos automáticamente.", ["Current version"] = "Versión actual", ["Check for updates"] = "Buscar actualizaciones", ["Not checked yet"] = "Aún no comprobado", ["Checking for updates…"] = "Buscando actualizaciones…", ["You are up to date"] = "Está actualizado", ["Unable to check for updates"] = "No se pueden buscar actualizaciones", ["Update available: {0}"] = "Actualización disponible: {0}", ["Theme"] = "Tema", ["Light"] = "Claro", ["Dim"] = "Tenue", ["Soft Dark"] = "Oscuro suave", ["Dark"] = "Oscuro",
+            ["Accent color"] = "Color de acento", ["Blue"] = "Azul", ["Teal"] = "Verde azulado", ["Violet"] = "Violeta", ["Amber"] = "Ámbar", ["Rose"] = "Rosa", ["Green"] = "Verde",
+            ["Language"] = "Idioma", ["Choose the language used by the XRatio interface."] = "Elige el idioma de la interfaz de XRatio.",
+            ["Connection"] = "Conexión", ["HTTP proxy port"] = "Puerto del proxy HTTP", ["Minimum leechers"] = "Leechers mínimos",
+            ["Accept tracker traffic only"] = "Aceptar solo tráfico de trackers", ["Listen on localhost only (required)"] = "Escuchar solo en localhost (obligatorio)",
+            ["Write redacted proxy debug log"] = "Escribir registro de depuración anonimizado", ["Configuration"] = "Configuración",
+            ["Configuration saved."] = "Configuración guardada.", ["Active"] = "Activo", ["Paused"] = "En pausa", ["Proxy stopped"] = "Proxy detenido", ["Ready"] = "Listo"
+        };
 
-    public static string Normalize(string? language) =>
-        string.Equals(language, French, StringComparison.OrdinalIgnoreCase)
-            ? French
-            : English;
+    private static readonly IReadOnlyDictionary<string, string> GermanMap =
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["English"] = "Englisch", ["French"] = "Französisch", ["Spanish"] = "Spanisch", ["German"] = "Deutsch",
+            ["Italian"] = "Italienisch", ["Portuguese"] = "Portugiesisch", ["Japanese"] = "Japanisch", ["Chinese"] = "Chinesisch",
+            ["Arabic"] = "Arabisch", ["Russian"] = "Russisch", ["Overview"] = "Übersicht", ["Interception"] = "Abfangen",
+            ["Simulation"] = "Simulation", ["Activity"] = "Aktivität", ["Settings"] = "Einstellungen", ["Platform"] = "Plattform",
+            ["Monitoring"] = "Überwachung", ["Control"] = "Steuerung", ["System"] = "System", ["Support"] = "Hilfe", ["Guide"] = "Anleitung",
+            ["LOCAL RATIO CONTROL"] = "LOKALE RATIO-STEUERUNG", ["LOCAL / MONITORING"] = "LOKAL / ÜBERWACHUNG",
+            ["Loading configuration…"] = "Konfiguration wird geladen…", ["Start"] = "Starten", ["Stop"] = "Stoppen", ["Retry"] = "Erneut versuchen",
+            ["Pause"] = "Pause", ["Resume"] = "Fortsetzen", ["Save changes"] = "Änderungen speichern", ["To tray"] = "In den Infobereich minimieren",
+            ["Close"] = "Schließen", ["Open Settings"] = "Einstellungen öffnen", ["Current runtime status."] = "Aktueller Dienststatus.",
+            ["PROXY CHANNEL"] = "PROXY-KANAL", ["Local tracker interception · HTTP / HTTPS"] = "Lokales Tracker-Abfangen · HTTP / HTTPS",
+            ["Tracked torrents"] = "Überwachte Torrents", ["Announcements observed"] = "Beobachtete Ankündigungen", ["Simulations"] = "Simulationen",
+            ["Active / configured"] = "Aktiv / konfiguriert", ["Reported upload"] = "Gemeldeter Upload", ["Current session"] = "Aktuelle Sitzung",
+            ["OPERATING MODES"] = "BETRIEBSMODI", ["Two paths, one local control plane."] = "Zwei Wege, eine lokale Steuerung.",
+            ["Tracker announces only — payloads and peer traffic remain untouched."] = "Nur Tracker-Ankündigungen — Nutzdaten und Peer-Verkehr bleiben unverändert.",
+            ["Appearance"] = "Darstellung", ["Updates"] = "Aktualisierungen", ["Check the official GitHub release without changing files automatically."] = "Prüfe die offizielle GitHub-Version, ohne Dateien automatisch zu ändern.", ["Current version"] = "Aktuelle Version", ["Check for updates"] = "Nach Updates suchen", ["Not checked yet"] = "Noch nicht geprüft", ["Checking for updates…"] = "Suche nach Updates…", ["You are up to date"] = "Du bist auf dem neuesten Stand", ["Unable to check for updates"] = "Updates konnten nicht geprüft werden", ["Update available: {0}"] = "Update verfügbar: {0}", ["Theme"] = "Design", ["Light"] = "Hell", ["Dim"] = "Gedämpft", ["Soft Dark"] = "Sanft dunkel", ["Dark"] = "Dunkel",
+            ["Accent color"] = "Akzentfarbe", ["Blue"] = "Blau", ["Teal"] = "Türkis", ["Violet"] = "Violett", ["Amber"] = "Bernstein", ["Rose"] = "Rosa", ["Green"] = "Grün",
+            ["Language"] = "Sprache", ["Choose the language used by the XRatio interface."] = "Wähle die Sprache der XRatio-Oberfläche.",
+            ["Connection"] = "Verbindung", ["HTTP proxy port"] = "HTTP-Proxy-Port", ["Minimum leechers"] = "Minimale Leecher",
+            ["Accept tracker traffic only"] = "Nur Tracker-Verkehr zulassen", ["Listen on localhost only (required)"] = "Nur auf localhost lauschen (erforderlich)",
+            ["Write redacted proxy debug log"] = "Anonymisiertes Proxy-Debugprotokoll schreiben", ["Configuration"] = "Konfiguration",
+            ["Configuration saved."] = "Konfiguration gespeichert.", ["Active"] = "Aktiv", ["Paused"] = "Pausiert", ["Proxy stopped"] = "Proxy gestoppt", ["Ready"] = "Bereit"
+        };
+
+    private static readonly IReadOnlyDictionary<string, string> ItalianMap =
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["English"] = "Inglese", ["French"] = "Francese", ["Spanish"] = "Spagnolo", ["German"] = "Tedesco",
+            ["Italian"] = "Italiano", ["Portuguese"] = "Portoghese", ["Japanese"] = "Giapponese", ["Chinese"] = "Cinese",
+            ["Arabic"] = "Arabo", ["Russian"] = "Russo", ["Overview"] = "Panoramica", ["Interception"] = "Intercettazione",
+            ["Simulation"] = "Simulazione", ["Activity"] = "Attività", ["Settings"] = "Impostazioni", ["Platform"] = "Piattaforma",
+            ["Monitoring"] = "Monitoraggio", ["Control"] = "Controllo", ["System"] = "Sistema", ["Support"] = "Supporto", ["Guide"] = "Guida",
+            ["LOCAL RATIO CONTROL"] = "CONTROLLO RATIO LOCALE", ["LOCAL / MONITORING"] = "LOCALE / MONITORAGGIO",
+            ["Loading configuration…"] = "Caricamento configurazione…", ["Start"] = "Avvia", ["Stop"] = "Arresta", ["Retry"] = "Riprova",
+            ["Pause"] = "Pausa", ["Resume"] = "Riprendi", ["Save changes"] = "Salva modifiche", ["To tray"] = "Riduci nell’area di notifica",
+            ["Close"] = "Chiudi", ["Open Settings"] = "Apri impostazioni", ["Current runtime status."] = "Stato attuale del servizio.",
+            ["PROXY CHANNEL"] = "CANALE PROXY", ["Local tracker interception · HTTP / HTTPS"] = "Intercettazione tracker locale · HTTP / HTTPS",
+            ["Tracked torrents"] = "Torrent monitorati", ["Announcements observed"] = "Annunci osservati", ["Simulations"] = "Simulazioni",
+            ["Active / configured"] = "Attive / configurate", ["Reported upload"] = "Upload annunciato", ["Current session"] = "Sessione corrente",
+            ["OPERATING MODES"] = "MODALITÀ OPERATIVE", ["Two paths, one local control plane."] = "Due percorsi, un solo piano di controllo locale.",
+            ["Tracker announces only — payloads and peer traffic remain untouched."] = "Solo annunci tracker — payload e traffico peer restano invariati.",
+            ["Appearance"] = "Aspetto", ["Updates"] = "Aggiornamenti", ["Check the official GitHub release without changing files automatically."] = "Controlla la release ufficiale GitHub senza modificare automaticamente i file.", ["Current version"] = "Versione attuale", ["Check for updates"] = "Cerca aggiornamenti", ["Not checked yet"] = "Non ancora verificato", ["Checking for updates…"] = "Ricerca aggiornamenti…", ["You are up to date"] = "È installata l’ultima versione", ["Unable to check for updates"] = "Impossibile cercare aggiornamenti", ["Update available: {0}"] = "Aggiornamento disponibile: {0}", ["Theme"] = "Tema", ["Light"] = "Chiaro", ["Dim"] = "Attenuato", ["Soft Dark"] = "Scuro morbido", ["Dark"] = "Scuro",
+            ["Accent color"] = "Colore accento", ["Blue"] = "Blu", ["Teal"] = "Verde acqua", ["Violet"] = "Viola", ["Amber"] = "Ambra", ["Rose"] = "Rosa", ["Green"] = "Verde",
+            ["Language"] = "Lingua", ["Choose the language used by the XRatio interface."] = "Scegli la lingua dell’interfaccia XRatio.",
+            ["Connection"] = "Connessione", ["HTTP proxy port"] = "Porta proxy HTTP", ["Minimum leechers"] = "Leecher minimi",
+            ["Accept tracker traffic only"] = "Accetta solo traffico tracker", ["Listen on localhost only (required)"] = "Ascolta solo su localhost (obbligatorio)",
+            ["Write redacted proxy debug log"] = "Scrivi log proxy anonimizzato", ["Configuration"] = "Configurazione",
+            ["Configuration saved."] = "Configurazione salvata.", ["Active"] = "Attivo", ["Paused"] = "In pausa", ["Proxy stopped"] = "Proxy arrestato", ["Ready"] = "Pronto"
+        };
+
+    private static readonly IReadOnlyDictionary<string, string> PortugueseMap =
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["English"] = "Inglês", ["French"] = "Francês", ["Spanish"] = "Espanhol", ["German"] = "Alemão",
+            ["Italian"] = "Italiano", ["Portuguese"] = "Português", ["Japanese"] = "Japonês", ["Chinese"] = "Chinês",
+            ["Arabic"] = "Árabe", ["Russian"] = "Russo", ["Overview"] = "Visão geral", ["Interception"] = "Interceptação",
+            ["Simulation"] = "Simulação", ["Activity"] = "Atividade", ["Settings"] = "Configurações", ["Platform"] = "Plataforma",
+            ["Monitoring"] = "Monitoramento", ["Control"] = "Controle", ["System"] = "Sistema", ["Support"] = "Suporte", ["Guide"] = "Guia",
+            ["LOCAL RATIO CONTROL"] = "CONTROLE DE RATIO LOCAL", ["LOCAL / MONITORING"] = "LOCAL / MONITORAMENTO",
+            ["Loading configuration…"] = "Carregando configuração…", ["Start"] = "Iniciar", ["Stop"] = "Parar", ["Retry"] = "Tentar novamente",
+            ["Pause"] = "Pausar", ["Resume"] = "Retomar", ["Save changes"] = "Salvar alterações", ["To tray"] = "Minimizar para a bandeja",
+            ["Close"] = "Fechar", ["Open Settings"] = "Abrir configurações", ["Current runtime status."] = "Estado atual do serviço.",
+            ["PROXY CHANNEL"] = "CANAL PROXY", ["Local tracker interception · HTTP / HTTPS"] = "Interceptação local de trackers · HTTP / HTTPS",
+            ["Tracked torrents"] = "Torrents monitorados", ["Announcements observed"] = "Anúncios observados", ["Simulations"] = "Simulações",
+            ["Active / configured"] = "Ativas / configuradas", ["Reported upload"] = "Upload anunciado", ["Current session"] = "Sessão atual",
+            ["OPERATING MODES"] = "MODOS DE OPERAÇÃO", ["Two paths, one local control plane."] = "Dois caminhos, um único plano de controle local.",
+            ["Tracker announces only — payloads and peer traffic remain untouched."] = "Somente anúncios de trackers — payloads e tráfego entre pares permanecem intactos.",
+            ["Appearance"] = "Aparência", ["Updates"] = "Atualizações", ["Check the official GitHub release without changing files automatically."] = "Verifique a versão oficial do GitHub sem alterar arquivos automaticamente.", ["Current version"] = "Versão atual", ["Check for updates"] = "Verificar atualizações", ["Not checked yet"] = "Ainda não verificado", ["Checking for updates…"] = "Verificando atualizações…", ["You are up to date"] = "Você está usando a versão mais recente", ["Unable to check for updates"] = "Não foi possível verificar atualizações", ["Update available: {0}"] = "Atualização disponível: {0}", ["Theme"] = "Tema", ["Light"] = "Claro", ["Dim"] = "Suave", ["Soft Dark"] = "Escuro suave", ["Dark"] = "Escuro",
+            ["Accent color"] = "Cor de destaque", ["Blue"] = "Azul", ["Teal"] = "Turquesa", ["Violet"] = "Violeta", ["Amber"] = "Âmbar", ["Rose"] = "Rosa", ["Green"] = "Verde",
+            ["Language"] = "Idioma", ["Choose the language used by the XRatio interface."] = "Escolha o idioma da interface XRatio.",
+            ["Connection"] = "Conexão", ["HTTP proxy port"] = "Porta do proxy HTTP", ["Minimum leechers"] = "Leechers mínimos",
+            ["Accept tracker traffic only"] = "Aceitar apenas tráfego de trackers", ["Listen on localhost only (required)"] = "Escutar apenas no localhost (obrigatório)",
+            ["Write redacted proxy debug log"] = "Escrever log de depuração anonimizado", ["Configuration"] = "Configuração",
+            ["Configuration saved."] = "Configuração salva.", ["Active"] = "Ativo", ["Paused"] = "Pausado", ["Proxy stopped"] = "Proxy parado", ["Ready"] = "Pronto"
+        };
+
+    private static readonly IReadOnlyDictionary<string, string> JapaneseMap =
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["Overview"] = "概要", ["Interception"] = "インターセプト", ["Simulation"] = "シミュレーション", ["Activity"] = "アクティビティ",
+            ["Settings"] = "設定", ["Platform"] = "プラットフォーム", ["Monitoring"] = "監視", ["Control"] = "制御", ["System"] = "システム", ["Support"] = "サポート", ["Guide"] = "ガイド",
+            ["Appearance"] = "外観", ["Updates"] = "更新", ["Check the official GitHub release without changing files automatically."] = "ファイルを自動変更せず、GitHub の公式リリースを確認します。", ["Current version"] = "現在のバージョン", ["Check for updates"] = "更新を確認", ["Not checked yet"] = "未確認", ["Checking for updates…"] = "更新を確認中…", ["You are up to date"] = "最新バージョンです", ["Unable to check for updates"] = "更新を確認できません", ["Update available: {0}"] = "更新があります: {0}", ["Theme"] = "テーマ", ["Light"] = "ライト", ["Dim"] = "控えめ", ["Soft Dark"] = "ソフトダーク", ["Dark"] = "ダーク",
+            ["Accent color"] = "アクセントカラー", ["Blue"] = "ブルー", ["Teal"] = "ティール", ["Violet"] = "バイオレット", ["Amber"] = "アンバー", ["Rose"] = "ローズ", ["Green"] = "グリーン",
+            ["Language"] = "言語", ["Connection"] = "接続", ["Configuration"] = "設定", ["Start"] = "開始", ["Stop"] = "停止", ["Pause"] = "一時停止", ["Resume"] = "再開", ["Save changes"] = "変更を保存"
+        };
+
+    private static readonly IReadOnlyDictionary<string, string> ChineseMap =
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["Overview"] = "概览", ["Interception"] = "拦截", ["Simulation"] = "模拟", ["Activity"] = "活动",
+            ["Settings"] = "设置", ["Platform"] = "平台", ["Monitoring"] = "监控", ["Control"] = "控制", ["System"] = "系统", ["Support"] = "支持", ["Guide"] = "指南",
+            ["Appearance"] = "外观", ["Updates"] = "更新", ["Check the official GitHub release without changing files automatically."] = "检查 GitHub 官方版本，不会自动修改文件。", ["Current version"] = "当前版本", ["Check for updates"] = "检查更新", ["Not checked yet"] = "尚未检查", ["Checking for updates…"] = "正在检查更新…", ["You are up to date"] = "已是最新版本", ["Unable to check for updates"] = "无法检查更新", ["Update available: {0}"] = "有可用更新：{0}", ["Theme"] = "主题", ["Light"] = "浅色", ["Dim"] = "柔和", ["Soft Dark"] = "柔和深色", ["Dark"] = "深色",
+            ["Accent color"] = "强调色", ["Blue"] = "蓝色", ["Teal"] = "青绿色", ["Violet"] = "紫色", ["Amber"] = "琥珀色", ["Rose"] = "玫瑰色", ["Green"] = "绿色",
+            ["Language"] = "语言", ["Connection"] = "连接", ["Configuration"] = "配置", ["Start"] = "启动", ["Stop"] = "停止", ["Pause"] = "暂停", ["Resume"] = "继续", ["Save changes"] = "保存更改"
+        };
+
+    private static readonly IReadOnlyDictionary<string, string> ArabicMap =
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["Overview"] = "نظرة عامة", ["Interception"] = "الاعتراض", ["Simulation"] = "المحاكاة", ["Activity"] = "النشاط",
+            ["Settings"] = "الإعدادات", ["Platform"] = "المنصة", ["Monitoring"] = "المراقبة", ["Control"] = "التحكم", ["System"] = "النظام", ["Support"] = "الدعم", ["Guide"] = "الدليل",
+            ["Appearance"] = "المظهر", ["Updates"] = "التحديثات", ["Check the official GitHub release without changing files automatically."] = "تحقق من إصدار GitHub الرسمي دون تغيير الملفات تلقائياً.", ["Current version"] = "الإصدار الحالي", ["Check for updates"] = "البحث عن تحديثات", ["Not checked yet"] = "لم يتم التحقق بعد", ["Checking for updates…"] = "جارٍ البحث عن تحديثات…", ["You are up to date"] = "لديك أحدث إصدار", ["Unable to check for updates"] = "تعذر البحث عن تحديثات", ["Update available: {0}"] = "يتوفر تحديث: {0}", ["Theme"] = "السمة", ["Light"] = "فاتح", ["Dim"] = "خافت", ["Soft Dark"] = "داكن ناعم", ["Dark"] = "داكن",
+            ["Accent color"] = "لون التمييز", ["Blue"] = "أزرق", ["Teal"] = "تركوازي", ["Violet"] = "بنفسجي", ["Amber"] = "كهرماني", ["Rose"] = "وردي", ["Green"] = "أخضر",
+            ["Language"] = "اللغة", ["Connection"] = "الاتصال", ["Configuration"] = "الإعدادات", ["Start"] = "بدء", ["Stop"] = "إيقاف", ["Pause"] = "إيقاف مؤقت", ["Resume"] = "استئناف", ["Save changes"] = "حفظ التغييرات"
+        };
+
+    private static readonly IReadOnlyDictionary<string, string> RussianMap =
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["Overview"] = "Обзор", ["Interception"] = "Перехват", ["Simulation"] = "Симуляция", ["Activity"] = "Активность",
+            ["Settings"] = "Настройки", ["Platform"] = "Платформа", ["Monitoring"] = "Мониторинг", ["Control"] = "Управление", ["System"] = "Система", ["Support"] = "Поддержка", ["Guide"] = "Справка",
+            ["Appearance"] = "Внешний вид", ["Updates"] = "Обновления", ["Check the official GitHub release without changing files automatically."] = "Проверяйте официальный выпуск GitHub без автоматического изменения файлов.", ["Current version"] = "Текущая версия", ["Check for updates"] = "Проверить обновления", ["Not checked yet"] = "Ещё не проверено", ["Checking for updates…"] = "Проверка обновлений…", ["You are up to date"] = "Установлена последняя версия", ["Unable to check for updates"] = "Не удалось проверить обновления", ["Update available: {0}"] = "Доступно обновление: {0}", ["Theme"] = "Тема", ["Light"] = "Светлая", ["Dim"] = "Приглушённая", ["Soft Dark"] = "Мягкая тёмная", ["Dark"] = "Тёмная",
+            ["Accent color"] = "Цвет акцента", ["Blue"] = "Синий", ["Teal"] = "Бирюзовый", ["Violet"] = "Фиолетовый", ["Amber"] = "Янтарный", ["Rose"] = "Розовый", ["Green"] = "Зелёный",
+            ["Language"] = "Язык", ["Connection"] = "Подключение", ["Configuration"] = "Конфигурация", ["Start"] = "Запустить", ["Stop"] = "Остановить", ["Pause"] = "Пауза", ["Resume"] = "Продолжить", ["Save changes"] = "Сохранить изменения"
+        };
+
+    private static readonly IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> TranslationMaps =
+        new Dictionary<string, IReadOnlyDictionary<string, string>>(StringComparer.Ordinal)
+        {
+            [French] = FrenchMap,
+            [Spanish] = SpanishMap,
+            [German] = GermanMap,
+            [Italian] = ItalianMap,
+            [Portuguese] = PortugueseMap,
+            [Japanese] = JapaneseMap,
+            [Chinese] = ChineseMap,
+            [Arabic] = ArabicMap,
+            [Russian] = RussianMap
+        };
+
+    private static readonly IReadOnlyDictionary<string, string> EnglishMap = BuildEnglishMap();
+
+    private static IReadOnlyDictionary<string, string> BuildEnglishMap()
+    {
+        var reverse = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var map in TranslationMaps.Values)
+        {
+            foreach (var pair in map)
+            {
+                if (!reverse.ContainsKey(pair.Value))
+                    reverse[pair.Value] = pair.Key;
+            }
+        }
+        return reverse;
+    }
+
+    public static string Normalize(string? language)
+    {
+        if (string.IsNullOrWhiteSpace(language))
+            return English;
+
+        var trimmed = language.Trim();
+        var code = LanguageCodes.FirstOrDefault(value =>
+            string.Equals(value, trimmed, StringComparison.OrdinalIgnoreCase));
+        if (code is not null)
+            return code;
+
+        var labelIndex = LanguageLabels
+            .Select((label, index) => (label, index))
+            .FirstOrDefault(item => string.Equals(item.label, trimmed, StringComparison.Ordinal));
+        return labelIndex.label is not null ? LanguageCodes[labelIndex.index] : English;
+    }
+
+    public static string At(int index) =>
+        index >= 0 && index < LanguageCodes.Count ? LanguageCodes[index] : English;
+
+    public static int LanguageIndex(string? value)
+    {
+        var code = Normalize(value);
+        var match = LanguageCodes
+            .Select((item, index) => (item, index))
+            .FirstOrDefault(pair => string.Equals(pair.item, code, StringComparison.Ordinal));
+        return match.item is not null ? match.index : 0;
+    }
+
+    public static string FlagCodeAt(int index) =>
+        index >= 0 && index < LanguageFlagCodes.Count ? LanguageFlagCodes[index] : LanguageFlagCodes[0];
+
+    public static string DisplayNameAt(int index) =>
+        index >= 0 && index < LanguageDisplayNames.Count ? LanguageDisplayNames[index] : LanguageDisplayNames[0];
+
+    public static int IndexOf(string? language)
+    {
+        var normalized = Normalize(language);
+        var index = LanguageCodes
+            .Select((value, itemIndex) => (value, itemIndex))
+            .FirstOrDefault(item => string.Equals(item.value, normalized, StringComparison.Ordinal));
+        return index.value is not null ? index.itemIndex : 0;
+    }
 
     public static string Translate(string key, string language)
     {
-        if (Normalize(language) == French && FrenchMap.TryGetValue(key, out var translation))
+        var map = TranslationMaps.TryGetValue(Normalize(language), out var selected)
+            ? selected
+            : null;
+        if (map is not null && map.TryGetValue(key, out var translation))
             return translation;
         return key;
     }

@@ -23,7 +23,7 @@ XRatio est écrit en C#/.NET 10 et cible Windows en priorité. Le cœur et le pr
 - **Interception** : compteurs réels/reportés, peers, statut et dernière annonce par info-hash.
 - **Simulation** : import `.torrent`, tracker, profil client, vitesses, progression, start/stop/update/remove.
 - **Activity** : événements du proxy et des simulations.
-- **Settings** : choix du thème clair/sombre et de la langue français/anglais, ratios, boost, FreeLeech, Pretend-to-Seed, journalisation et autostart.
+- **Settings** : choix de la langue, des thèmes et des accents, règles de ratio, journalisation, autostart, version installée et recherche de mises à jour GitHub.
 - **Platform** : activation HTTPS avec consentement explicite et gestion de la CA locale.
 
 Les simulations configurées sont enregistrées dans `%APPDATA%\XRatio\simulations.json` et restaurées arrêtées. Le mot de passe proxy n’est jamais persisté.
