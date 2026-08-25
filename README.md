@@ -75,13 +75,13 @@ The same settings are available in most clients that support an HTTP proxy. Stop
 5. Apply the settings, then start or manually update a torrent announce.
 6. Use **Interception** and **Activity** in XRatio to confirm the announce and its counters.
 
-For HTTPS trackers, open **Platform** in XRatio and explicitly trust the installation CA before enabling HTTPS interception. HTTP interception works without this step.
-
 Example qBittorrent configuration:
 
 <p align="center">
-  <img src="assets/qbittorrent-proxy-settings.png" alt="qBittorrent proxy settings for XRatio" width="760">
+  <img src="assets/qbittorrent-proxy-settings.png" alt="qBittorrent proxy settings for XRatio" width="520">
 </p>
+
+For HTTPS trackers, open **Platform** in XRatio and explicitly trust the installation CA before enabling HTTPS interception. HTTP interception works without this step.
 
 ## Build, test, and package
 
