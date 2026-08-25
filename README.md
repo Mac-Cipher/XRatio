@@ -14,7 +14,7 @@ XRatio is a Windows-first .NET 10 / Avalonia desktop application for people who 
 - **Simulation** — an independent engine inspired by [RatioMaster.NET](https://github.com/NikolayIT/RatioMaster.NET) reads `.torrent` metadata and runs tracker sessions with explicit counters, speeds, and client profiles.
 
 <p align="center">
-  <img src="docs/screenshots/overview-current.png" alt="XRatio current overview" width="1000">
+  <img src="docs/screenshots/overview-light.png" alt="XRatio current overview" width="1000">
 </p>
 
 <p align="center">
