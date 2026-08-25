@@ -25,6 +25,34 @@ XRatio is a Windows-first .NET 10 / Avalonia desktop application for people who 
 
 **Windows-first · Avalonia · .NET 10 · GPL-3.0**
 
+## Install and configure a torrent client
+
+### Install XRatio
+
+1. Download the latest Windows package from [Releases](https://github.com/Mac-Cipher/XRatio/releases).
+2. Extract the archive to a folder you control and start `XRatio.exe`.
+3. Confirm that the header shows the local proxy on `127.0.0.1:3773`.
+4. Keep simulations stopped unless you intentionally want to run a separate controlled torrent session.
+
+### Configure qBittorrent
+
+The same settings are available in most clients that support an HTTP proxy. Stop active torrents before changing them.
+
+1. Open **Tools > Options > Connection > Proxy Server**.
+2. Choose **HTTP**, set the host to `127.0.0.1` and the port to `3773`.
+3. Enable **Use proxy for BitTorrent purposes** and **Perform hostname lookup via proxy**.
+4. Leave **Use proxy for peer connections** disabled. XRatio handles tracker announces only; payload and peer traffic stay on the normal client path.
+5. Apply the settings, then start or manually update a torrent announce.
+6. Use **Interception** and **Activity** in XRatio to confirm the announce and its counters.
+
+For HTTPS trackers, open **Platform** in XRatio and explicitly trust the installation CA before enabling HTTPS interception. HTTP interception works without this step.
+
+Example qBittorrent configuration:
+
+<p align="center">
+  <img src="assets/qbittorrent-proxy-settings.png" alt="qBittorrent proxy settings for XRatio" width="760">
+</p>
+
 ## Product surface
 
 | View | What it is for |
@@ -54,34 +82,6 @@ dotnet run --project .\src\XRatio.Desktop\XRatio.Desktop.csproj
 ```
 
 The first launch keeps simulations stopped. Configured sessions are stored in `%APPDATA%\XRatio\simulations.json`; the proxy password is never persisted.
-
-## Install and configure a torrent client
-
-### Install XRatio
-
-1. Download the latest Windows package from [Releases](https://github.com/Mac-Cipher/XRatio/releases).
-2. Extract the archive to a folder you control and start `XRatio.exe`.
-3. Confirm that the header shows the local proxy on `127.0.0.1:3773`.
-4. Keep simulations stopped unless you intentionally want to run a separate controlled torrent session.
-
-### Configure qBittorrent
-
-The same settings are available in most clients that support an HTTP proxy. Stop active torrents before changing them.
-
-1. Open **Tools > Options > Connection > Proxy Server**.
-2. Choose **HTTP**, set the host to `127.0.0.1` and the port to `3773`.
-3. Enable **Use proxy for BitTorrent purposes** and **Perform hostname lookup via proxy**.
-4. Leave **Use proxy for peer connections** disabled. XRatio handles tracker announces only; payload and peer traffic stay on the normal client path.
-5. Apply the settings, then start or manually update a torrent announce.
-6. Use **Interception** and **Activity** in XRatio to confirm the announce and its counters.
-
-Example qBittorrent configuration:
-
-<p align="center">
-  <img src="assets/qbittorrent-proxy-settings.png" alt="qBittorrent proxy settings for XRatio" width="520">
-</p>
-
-For HTTPS trackers, open **Platform** in XRatio and explicitly trust the installation CA before enabling HTTPS interception. HTTP interception works without this step.
 
 ## Build, test, and package
 
