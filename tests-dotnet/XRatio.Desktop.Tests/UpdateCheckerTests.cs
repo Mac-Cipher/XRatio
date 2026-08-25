@@ -8,8 +8,8 @@ public sealed class UpdateCheckerTests
     [Fact]
     public void VersionMetadata_UsesTheProductVersion()
     {
-        Assert.Equal("0.1.3", AppVersion.Current);
-        Assert.Equal("v0.1.3", AppVersion.Display);
+        Assert.Equal("0.1.4", AppVersion.Current);
+        Assert.Equal("v0.1.4", AppVersion.Display);
     }
 
     [Fact]
@@ -19,7 +19,17 @@ public sealed class UpdateCheckerTests
             {
               "tag_name": "v0.2.0",
               "name": "XRatio 0.2.0",
-              "html_url": "https://github.com/Mac-Cipher/XRatio/releases/tag/v0.2.0"
+              "html_url": "https://github.com/Mac-Cipher/XRatio/releases/tag/v0.2.0",
+              "assets": [
+                {
+                  "name": "XRatio-dotnet-win-x64-v0.2.0.zip",
+                  "browser_download_url": "https://github.com/Mac-Cipher/XRatio/releases/download/v0.2.0/XRatio-dotnet-win-x64-v0.2.0.zip"
+                },
+                {
+                  "name": "XRatio.exe",
+                  "browser_download_url": "https://github.com/Mac-Cipher/XRatio/releases/download/v0.2.0/XRatio.exe"
+                }
+              ]
             }
             """);
 
@@ -31,6 +41,9 @@ public sealed class UpdateCheckerTests
         Assert.Equal(
             "https://github.com/Mac-Cipher/XRatio/releases/tag/v0.2.0",
             result.ReleaseUri?.ToString());
+        Assert.Equal(
+            "https://github.com/Mac-Cipher/XRatio/releases/download/v0.2.0/XRatio-dotnet-win-x64-v0.2.0.zip",
+            result.DownloadUri?.ToString());
         Assert.Null(result.Error);
     }
 

@@ -8,6 +8,7 @@ internal sealed record UpdateCheckResult(
     string? LatestVersion,
     string? ReleaseName,
     Uri? ReleaseUri,
+    Uri? DownloadUri,
     bool IsUpdateAvailable,
     string? Error);
 
@@ -67,14 +68,38 @@ internal static class UpdateChecker
             ? urlElement.GetString()
             : null;
         Uri.TryCreate(releaseUrl, UriKind.Absolute, out var releaseUri);
+        var downloadUri = ParseDownloadUri(release);
 
         return new UpdateCheckResult(
             currentVersion,
             latestVersion,
             releaseName,
             releaseUri,
+            downloadUri,
             IsNewerVersion(currentVersion, latestVersion),
             null);
+    }
+
+    private static Uri? ParseDownloadUri(JsonElement release)
+    {
+        if (!release.TryGetProperty("assets", out var assets) ||
+            assets.ValueKind != JsonValueKind.Array)
+            return null;
+
+        foreach (var asset in assets.EnumerateArray()
+                     .Where(item =>
+                         item.TryGetProperty("name", out var nameElement) &&
+                         nameElement.GetString()?.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) == true)
+                     .Concat(assets.EnumerateArray().Where(item =>
+                         item.TryGetProperty("name", out var nameElement) &&
+                         nameElement.GetString()?.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) == true)))
+        {
+            if (asset.TryGetProperty("browser_download_url", out var downloadElement) &&
+                Uri.TryCreate(downloadElement.GetString(), UriKind.Absolute, out var downloadUri))
+                return downloadUri;
+        }
+
+        return null;
     }
 
     internal static string? NormalizeTag(string? tag)
@@ -109,5 +134,5 @@ internal static class UpdateChecker
     }
 
     private static UpdateCheckResult Failure(string currentVersion, string error) =>
-        new(currentVersion, null, null, null, false, error);
+        new(currentVersion, null, null, null, null, false, error);
 }

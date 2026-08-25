@@ -88,6 +88,7 @@ public sealed class MainWindow : Window
     private readonly Button _settingsSaveAction = new();
     private readonly TextBlock _settingsSaveStatus = new();
     private readonly Button _checkUpdates = new();
+    private readonly Button _downloadUpdate = new();
     private readonly TextBlock _updateStatus = new();
     private readonly ComboBox _themeMode = new();
     private readonly ComboBox _accentColor = new();
@@ -135,6 +136,7 @@ public sealed class MainWindow : Window
     private bool _restoreRequested;
     private bool _suppressLanguageSelection;
     private Uri? _latestReleaseUri;
+    private Uri? _latestDownloadUri;
     private int _torrentPersistenceRequested;
     private int _torrentPersistenceWriterRunning;
     private CancellationTokenSource? _simulationFormSaveCancellation;
@@ -2335,33 +2337,61 @@ public sealed class MainWindow : Window
         StyleButton(_checkUpdates, ButtonTone.Secondary, minWidth: 190);
         _checkUpdates.Content = "Check for updates";
         _checkUpdates.Click += async (_, _) => await CheckForUpdatesAsync(startup: false);
+        StyleButton(_downloadUpdate, ButtonTone.Primary, minWidth: 170);
+        _downloadUpdate.Content = "Download update";
+        _downloadUpdate.IsVisible = false;
+        _downloadUpdate.Click += async (_, _) => await OpenLatestReleaseAsync();
         _updateStatus.Text = "Not checked yet";
         _updateStatus.Foreground = XRatioPalette.Muted;
         _updateStatus.FontSize = 12;
         _updateStatus.VerticalAlignment = VerticalAlignment.Center;
         _updateStatus.TextWrapping = Avalonia.Media.TextWrapping.Wrap;
 
-        var versionDisplay = new TextBlock
+        var versionDisplay = new Border
         {
-            Text = AppVersion.Display,
-            Foreground = XRatioPalette.Accent,
-            FontSize = 13,
-            FontWeight = FontWeight.SemiBold,
-            FontFeatures = XRatioPalette.TabularNumbers,
-            VerticalAlignment = VerticalAlignment.Center,
-            Padding = new Thickness(0, 7)
+            Background = XRatioPalette.AccentSoft,
+            BorderBrush = XRatioPalette.Accent,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(99),
+            Padding = new Thickness(10, 4),
+            HorizontalAlignment = HorizontalAlignment.Left,
+            Child = new TextBlock
+            {
+                Text = AppVersion.Display,
+                Foreground = XRatioPalette.Accent,
+                FontSize = 12.5,
+                FontWeight = FontWeight.SemiBold,
+                FontFeatures = XRatioPalette.TabularNumbers,
+                VerticalAlignment = VerticalAlignment.Center
+            }
         };
 
         var updates = BuildSettingsSection(
             "Updates",
             "Check the official GitHub release without changing files automatically.",
             BuildSettingsBody(
-                BuildFieldGrid(("Current version", versionDisplay)),
+                new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 18,
+                    Children =
+                    {
+                        new TextBlock
+                        {
+                            Text = "Current version",
+                            FontSize = 13,
+                            Foreground = XRatioPalette.Ink,
+                            Width = 220,
+                            VerticalAlignment = VerticalAlignment.Center
+                        },
+                        versionDisplay
+                    }
+                },
                 new StackPanel
                 {
                     Orientation = Orientation.Horizontal,
                     Spacing = 12,
-                    Children = { _checkUpdates, _updateStatus }
+                    Children = { _checkUpdates, _downloadUpdate, _updateStatus }
                 }),
             bottomPadding: 10);
 
@@ -2505,7 +2535,9 @@ public sealed class MainWindow : Window
                 _updateStatus.Text = L("Checking for updates…");
             _updateStatus.Foreground = XRatioPalette.Muted;
             _checkUpdates.IsEnabled = false;
+            _downloadUpdate.IsVisible = false;
             _latestReleaseUri = null;
+            _latestDownloadUri = null;
 
             using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(9));
             var result = await UpdateChecker.CheckAsync(AppVersion.Current, cancellation.Token);
@@ -2522,11 +2554,14 @@ public sealed class MainWindow : Window
             if (result.IsUpdateAvailable && result.LatestVersion is not null)
             {
                 _latestReleaseUri = result.ReleaseUri;
+                _latestDownloadUri = result.DownloadUri;
                 _updateStatus.Text = string.Format(
                     CultureInfo.CurrentCulture,
                     L("Update available: {0}"),
                     $"v{result.LatestVersion}");
                 _updateStatus.Foreground = XRatioPalette.Accent;
+                _downloadUpdate.Content = L("Download update");
+                _downloadUpdate.IsVisible = _latestDownloadUri is not null || _latestReleaseUri is not null;
                 if (_latestReleaseUri is not null)
                     ToolTip.SetTip(_updateStatus, _latestReleaseUri.ToString());
             }
@@ -2534,6 +2569,7 @@ public sealed class MainWindow : Window
             {
                 _updateStatus.Text = L("You are up to date");
                 _updateStatus.Foreground = XRatioPalette.Positive;
+                _downloadUpdate.IsVisible = false;
                 ToolTip.SetTip(_updateStatus, null);
             }
         }
@@ -2541,6 +2577,7 @@ public sealed class MainWindow : Window
         {
             _updateStatus.Text = L("Unable to check for updates");
             _updateStatus.Foreground = XRatioPalette.Warning;
+            _downloadUpdate.IsVisible = false;
         }
         finally
         {
@@ -2550,6 +2587,28 @@ public sealed class MainWindow : Window
                 _checkUpdates.Content = L("Check for updates");
             }
             _updateCheckGate.Release();
+        }
+    }
+
+    private async Task OpenLatestReleaseAsync()
+    {
+        var uri = _latestDownloadUri ?? _latestReleaseUri;
+        if (uri is null)
+            return;
+
+        try
+        {
+            var launcher = TopLevel.GetTopLevel(this)?.Launcher;
+            if (launcher is null || !await launcher.LaunchUriAsync(uri))
+            {
+                _updateStatus.Text = L("Could not open update download");
+                _updateStatus.Foreground = XRatioPalette.Warning;
+            }
+        }
+        catch (Exception) when (!_exiting)
+        {
+            _updateStatus.Text = L("Could not open update download");
+            _updateStatus.Foreground = XRatioPalette.Warning;
         }
     }
 

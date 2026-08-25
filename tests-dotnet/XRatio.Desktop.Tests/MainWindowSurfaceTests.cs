@@ -236,6 +236,9 @@ public sealed class MainWindowSurfaceTests
         Assert.Contains(
             Descendants(options).OfType<Button>().Select(button => button.Content),
             content => Equals(content, "Check for updates"));
+        Assert.Contains(
+            Descendants(options).OfType<Button>().Select(button => button.Content),
+            content => Equals(content, "Download update"));
         var themeSelector = Descendants(options)
             .OfType<ComboBox>()
             .Single(comboBox => comboBox.ItemsSource is IEnumerable<string> values &&
