@@ -10,8 +10,8 @@
 
 XRatio is a Windows-first .NET 10 / Avalonia desktop application for people who need a clear, local view of tracker announces. It brings two deliberately separate workflows into one compact tool:
 
-- **Interception** — a local HTTP/HTTPS proxy inspired by RatioGhost rewrites tracker announces from a real torrent client while leaving payload and peer traffic alone.
-- **Simulation** — an independent engine inspired by RatioMaster reads `.torrent` metadata and runs tracker sessions with explicit counters, speeds, and client profiles.
+- **Interception** — a local HTTP/HTTPS proxy inspired by [RatioGhost](https://github.com/ratioghost/ratioghost) rewrites tracker announces from a real torrent client while leaving payload and peer traffic alone.
+- **Simulation** — an independent engine inspired by [RatioMaster.NET](https://github.com/NikolayIT/RatioMaster.NET) reads `.torrent` metadata and runs tracker sessions with explicit counters, speeds, and client profiles.
 
 <p align="center">
   <img src="docs/screenshots/overview-current.png" alt="XRatio current overview" width="1000">
@@ -99,8 +99,8 @@ This repository was developed with **OpenAI Codex**.
 
 XRatio is an independent .NET 10/Avalonia implementation inspired by two existing projects:
 
-- **[RatioGhost](https://github.com/Mac-Cipher/RatioGhost)** — inspiration for the announce/proxy workflow, local platform integration, certificates, tray behavior, packaging, and verification boundaries.
-- **[RatioMaster](https://github.com/Mac-Cipher/RatioMaster)** — inspiration for the `.torrent` simulation workflow, tracker sessions, client profiles, counters, speed variation, and announce lifecycle.
+- **[RatioGhost](https://github.com/ratioghost/ratioghost)** — inspiration for the announce/proxy workflow, local platform integration, certificates, tray behavior, packaging, and verification boundaries.
+- **[RatioMaster.NET](https://github.com/NikolayIT/RatioMaster.NET)** — inspiration for the `.torrent` simulation workflow, tracker sessions, client profiles, counters, speed variation, and announce lifecycle.
 
 The complete attribution is available in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
