@@ -25,6 +25,24 @@ XRatio is a Windows-first .NET 10 / Avalonia desktop application for people who 
 
 **Windows-first · Avalonia · .NET 10 · GPL-3.0**
 
+## Product surface
+
+| View | What it is for |
+| --- | --- |
+| **Overview** | Confirm proxy health, tracked torrents, simulations, and reported upload at a glance. |
+| **Interception** | Inspect real and rewritten announce counters, peers, status, and last announce per info-hash. |
+| **Simulation** | Load a `.torrent`, choose a tracker and client profile, configure speeds, then control a session explicitly. |
+| **Activity** | Follow proxy and simulation events without digging through raw logs. |
+| **Settings** | Configure language, themes, accents, ratio rules, logging, autostart, and check the installed version against the official GitHub release. |
+| **Platform** | Opt in to HTTPS interception and manage the local CA trust for the current Windows user. |
+
+## Design principles
+
+- **One control plane, two paths.** Interception and simulation remain visibly separate so a real client session is never confused with an independent simulation.
+- **Local and explicit.** The proxy is bound locally by default (`127.0.0.1:3773`), and HTTPS trust requires a deliberate confirmation.
+- **Fail closed.** Direct tracker simulation keeps the operating system's TLS validation; XRatio does not copy the legacy accept-all certificate behavior.
+- **Observable by default.** Counters, statuses, activity, and validation messages stay close to the action that produced them.
+
 ## Download and run
 
 End users should use the packaged Windows build from [Releases](https://github.com/Mac-Cipher/XRatio/releases). The self-contained package does not require a separate .NET installation.
@@ -58,24 +76,6 @@ The same settings are available in most clients that support an HTTP proxy. Stop
 6. Use **Interception** and **Activity** in XRatio to confirm the announce and its counters.
 
 For HTTPS trackers, open **Platform** in XRatio and explicitly trust the installation CA before enabling HTTPS interception. HTTP interception works without this step.
-
-## Product surface
-
-| View | What it is for |
-| --- | --- |
-| **Overview** | Confirm proxy health, tracked torrents, simulations, and reported upload at a glance. |
-| **Interception** | Inspect real and rewritten announce counters, peers, status, and last announce per info-hash. |
-| **Simulation** | Load a `.torrent`, choose a tracker and client profile, configure speeds, then control a session explicitly. |
-| **Activity** | Follow proxy and simulation events without digging through raw logs. |
-| **Settings** | Configure language, themes, accents, ratio rules, logging, autostart, and check the installed version against the official GitHub release. |
-| **Platform** | Opt in to HTTPS interception and manage the local CA trust for the current Windows user. |
-
-## Design principles
-
-- **One control plane, two paths.** Interception and simulation remain visibly separate so a real client session is never confused with an independent simulation.
-- **Local and explicit.** The proxy is bound locally by default (`127.0.0.1:3773`), and HTTPS trust requires a deliberate confirmation.
-- **Fail closed.** Direct tracker simulation keeps the operating system's TLS validation; XRatio does not copy the legacy accept-all certificate behavior.
-- **Observable by default.** Counters, statuses, activity, and validation messages stay close to the action that produced them.
 
 ## Build, test, and package
 
