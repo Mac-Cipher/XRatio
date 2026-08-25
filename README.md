@@ -1,14 +1,21 @@
 # XRatio
 
+[![GitHub](https://img.shields.io/badge/GitHub-Mac--Cipher-blue?style=for-the-badge&logo=github)](https://github.com/Mac-Cipher/XRatio)
+![Platform](https://img.shields.io/badge/Platform-Windows-brightgreen?style=for-the-badge&logo=windows)
+![Language](https://img.shields.io/badge/Language-C%23-purple?style=for-the-badge&logo=c-sharp)
+![UI](https://img.shields.io/badge/UI-Avalonia-8B5CF6?style=for-the-badge)
+![License](https://img.shields.io/badge/License-GPL--3.0-green?style=for-the-badge)
+![Made with Codex](https://img.shields.io/badge/Made%20with-OpenAI%20Codex-412991?style=for-the-badge&logo=openai&logoColor=white)
+
 > A native control plane for tracker announce interception and controlled torrent simulation.
 
 XRatio is a Windows-first .NET 10 / Avalonia desktop application for people who need a clear, local view of tracker announces. It brings two deliberately separate workflows into one compact tool:
 
-- **Interception** — a RatioGhost-derived local HTTP/HTTPS proxy rewrites tracker announces from a real torrent client while leaving payload and peer traffic alone.
-- **Simulation** — a RatioMaster-derived engine reads `.torrent` metadata and runs independent tracker sessions with explicit counters, speeds, and client profiles.
+- **Interception** — a local HTTP/HTTPS proxy inspired by RatioGhost rewrites tracker announces from a real torrent client while leaving payload and peer traffic alone.
+- **Simulation** — an independent engine inspired by RatioMaster reads `.torrent` metadata and runs tracker sessions with explicit counters, speeds, and client profiles.
 
 <p align="center">
-  <img src="docs/screenshots/overview-dim-theme.png" alt="XRatio overview in the dim theme" width="1000">
+  <img src="docs/screenshots/overview-current.png" alt="XRatio current overview" width="1000">
 </p>
 
 <p align="center">
@@ -36,6 +43,17 @@ XRatio is a Windows-first .NET 10 / Avalonia desktop application for people who 
 - **Local and explicit.** The proxy is bound locally by default (`127.0.0.1:3773`), and HTTPS trust requires a deliberate confirmation.
 - **Fail closed.** Direct tracker simulation keeps the operating system's TLS validation; XRatio does not copy the legacy accept-all certificate behavior.
 - **Observable by default.** Counters, statuses, activity, and validation messages stay close to the action that produced them.
+
+## Inspiration and provenance
+
+This repository was developed with **OpenAI Codex**.
+
+XRatio is an independent .NET 10/Avalonia implementation inspired by two existing projects:
+
+- **[RatioGhost](https://github.com/Mac-Cipher/RatioGhost)** — inspiration for the announce/proxy workflow, local platform integration, certificates, tray behavior, packaging, and verification boundaries.
+- **[RatioMaster](https://github.com/Mac-Cipher/RatioMaster)** — inspiration for the `.torrent` simulation workflow, tracker sessions, client profiles, counters, speed variation, and announce lifecycle.
+
+The complete attribution is available in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Download and run
 
