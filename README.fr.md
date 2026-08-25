@@ -21,19 +21,6 @@ XRatio est une application desktop tout-en-un pour piloter les ratios annoncés 
   <a href="README.md">Read this page in English</a>
 </p>
 
-XRatio est écrit en C#/.NET 10 et cible Windows en priorité. Le cœur et le proxy restent compilables sur Linux/macOS, sans prétendre à une validation desktop native sur ces systèmes.
-
-## Interface
-
-- **Overview** : état du proxy, torrents interceptés, simulations actives et upload reporté.
-- **Interception** : compteurs réels/reportés, peers, statut et dernière annonce par info-hash.
-- **Simulation** : import `.torrent`, tracker, profil client, vitesses, progression, start/stop/update/remove.
-- **Activity** : événements du proxy et des simulations.
-- **Settings** : choix de la langue, des thèmes et des accents, règles de ratio, journalisation, autostart, version installée et recherche de mises à jour GitHub.
-- **Platform** : activation HTTPS avec consentement explicite et gestion de la CA locale.
-
-Les simulations configurées sont enregistrées dans `%APPDATA%\XRatio\simulations.json` et restaurées arrêtées. Le mot de passe proxy n’est jamais persisté.
-
 ## Installer et configurer un client torrent
 
 ### Installer XRatio
@@ -55,6 +42,19 @@ Les mêmes options existent dans la plupart des clients compatibles avec un prox
 6. Utilisez **Interception** et **Activity** dans XRatio pour vérifier l’annonce et ses compteurs.
 
 Pour les trackers HTTPS, ouvrez **Platform** dans XRatio et approuvez explicitement la CA d’installation avant d’activer l’interception HTTPS. L’interception HTTP fonctionne sans cette étape.
+
+XRatio est écrit en C#/.NET 10 et cible Windows en priorité. Le cœur et le proxy restent compilables sur Linux/macOS, sans prétendre à une validation desktop native sur ces systèmes.
+
+## Interface
+
+- **Overview** : état du proxy, torrents interceptés, simulations actives et upload reporté.
+- **Interception** : compteurs réels/reportés, peers, statut et dernière annonce par info-hash.
+- **Simulation** : import `.torrent`, tracker, profil client, vitesses, progression, start/stop/update/remove.
+- **Activity** : événements du proxy et des simulations.
+- **Settings** : choix de la langue, des thèmes et des accents, règles de ratio, journalisation, autostart, version installée et recherche de mises à jour GitHub.
+- **Platform** : activation HTTPS avec consentement explicite et gestion de la CA locale.
+
+Les simulations configurées sont enregistrées dans `%APPDATA%\XRatio\simulations.json` et restaurées arrêtées. Le mot de passe proxy n’est jamais persisté.
 
 ## Mode Interception
 
