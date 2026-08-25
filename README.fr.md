@@ -54,13 +54,13 @@ Les mêmes options existent dans la plupart des clients compatibles avec un prox
 5. Appliquez les réglages, puis démarrez ou forcez la mise à jour d’une annonce.
 6. Utilisez **Interception** et **Activity** dans XRatio pour vérifier l’annonce et ses compteurs.
 
-Pour les trackers HTTPS, ouvrez **Platform** dans XRatio et approuvez explicitement la CA d’installation avant d’activer l’interception HTTPS. L’interception HTTP fonctionne sans cette étape.
-
 Exemple de configuration qBittorrent :
 
 <p align="center">
-  <img src="assets/qbittorrent-proxy-settings.png" alt="Configuration du proxy qBittorrent pour XRatio" width="760">
+  <img src="assets/qbittorrent-proxy-settings.png" alt="Configuration du proxy qBittorrent pour XRatio" width="520">
 </p>
+
+Pour les trackers HTTPS, ouvrez **Platform** dans XRatio et approuvez explicitement la CA d’installation avant d’activer l’interception HTTPS. L’interception HTTP fonctionne sans cette étape.
 
 ## Mode Interception
 
