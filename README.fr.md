@@ -27,8 +27,8 @@ XRatio est écrit en C#/.NET 10 et cible Windows en priorité. Le cœur et le pr
 
 ### Installer XRatio
 
-1. Téléchargez le dernier package Windows depuis [Releases](https://github.com/Mac-Cipher/XRatio/releases).
-2. Extrayez l’archive dans un dossier de votre choix et lancez `XRatio.exe`.
+1. Téléchargez directement `XRatio.exe` depuis [Releases](https://github.com/Mac-Cipher/XRatio/releases).
+2. Lancez `XRatio.exe` : il est autonome et ne nécessite ni extraction ni installation séparée de .NET.
 3. Vérifiez que l’en-tête indique le proxy local sur `127.0.0.1:3773`.
 4. Laissez les simulations arrêtées, sauf si vous souhaitez lancer volontairement une session torrent contrôlée séparée.
 
