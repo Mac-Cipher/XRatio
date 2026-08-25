@@ -10,8 +10,8 @@
 
 XRatio is a Windows-first .NET 10 / Avalonia desktop application for people who need a clear, local view of tracker announces. It brings two deliberately separate workflows into one compact tool:
 
-- **Interception** — a local HTTP/HTTPS proxy sits between your torrent client and the tracker, changes the upload/download values sent in announces so the reported ratio can stay flat or increase, and leaves files and peer traffic untouched.
-- **Simulation** — a standalone engine reads a `.torrent` file and sends controlled tracker announces with your chosen client profile, upload/download speeds, progress, and counters; it does not transfer the real torrent files.
+- **Interception** — a local HTTP/HTTPS proxy inspired by [RatioGhost](https://github.com/ratioghost/ratioghost) sits between your torrent client and the tracker, changes the upload/download values sent in announces so the reported ratio can stay flat or increase, and leaves files and peer traffic untouched.
+- **Simulation** — a standalone engine inspired by [RatioMaster.NET](https://github.com/NikolayIT/RatioMaster.NET) reads a `.torrent` file and sends controlled tracker announces with your chosen client profile, upload/download speeds, progress, and counters; it does not transfer the real torrent files.
 
 <p align="center">
   <img src="docs/screenshots/overview-light.png" alt="XRatio current overview" width="1000">
