@@ -29,8 +29,8 @@ XRatio is a Windows-first .NET 10 / Avalonia desktop application for people who 
 
 ### Install XRatio
 
-1. Download the latest Windows package from [Releases](https://github.com/Mac-Cipher/XRatio/releases).
-2. Extract the archive to a folder you control and start `XRatio.exe`.
+1. Download `XRatio.exe` directly from [Releases](https://github.com/Mac-Cipher/XRatio/releases).
+2. Start `XRatio.exe`; it is self-contained and does not require extraction or a separate .NET installation.
 3. Confirm that the header shows the local proxy on `127.0.0.1:3773`.
 4. Keep simulations stopped unless you intentionally want to run a separate controlled torrent session.
 
