@@ -10,8 +10,8 @@
 
 XRatio is a Windows-first .NET 10 / Avalonia desktop application for people who need a clear, local view of tracker announces. It brings two deliberately separate workflows into one compact tool:
 
-- **Interception** — a local HTTP/HTTPS proxy inspired by [RatioGhost](https://github.com/ratioghost/ratioghost) rewrites tracker announces from a real torrent client while leaving payload and peer traffic alone.
-- **Simulation** — an independent engine inspired by [RatioMaster.NET](https://github.com/NikolayIT/RatioMaster.NET) reads `.torrent` metadata and runs tracker sessions with explicit counters, speeds, and client profiles.
+- **Interception** — a local HTTP/HTTPS proxy sits between your torrent client and the tracker, changes the upload/download values sent in announces so the reported ratio can stay flat or increase, and leaves files and peer traffic untouched.
+- **Simulation** — a standalone engine reads a `.torrent` file and sends controlled tracker announces with your chosen client profile, upload/download speeds, progress, and counters; it does not transfer the real torrent files.
 
 <p align="center">
   <img src="docs/screenshots/overview-light.png" alt="XRatio current overview" width="1000">
@@ -57,12 +57,12 @@ Example qBittorrent configuration:
 
 | View | What it is for |
 | --- | --- |
-| **Overview** | Confirm proxy health, tracked torrents, simulations, and reported upload at a glance. |
-| **Interception** | Inspect real and rewritten announce counters, peers, status, and last announce per info-hash. |
-| **Simulation** | Load a `.torrent`, choose a tracker and client profile, configure speeds, then control a session explicitly. |
-| **Activity** | Follow proxy and simulation events without digging through raw logs. |
-| **Settings** | Configure language, themes, accents, ratio rules, logging, autostart, and check the installed version against the official GitHub release. |
-| **Platform** | Opt in to HTTPS interception and manage the local CA trust for the current Windows user. |
+| **Overview** | See whether the proxy is running, how many torrents are tracked, how many simulations are active, and how much upload is reported. |
+| **Interception** | Compare original and reported upload/download, ratio, peers, status, and last announce for each torrent. |
+| **Simulation** | Load a `.torrent`, choose a tracker and client profile, set speeds and progress, then send controlled announces without transferring files. |
+| **Activity** | Read proxy and simulation events as they happen. |
+| **Settings** | Change language, theme, tray icon, ratio rules, logging, autostart, and update checks. |
+| **Platform** | Enable startup/tray behavior and trust or remove the local CA for HTTPS tracker interception. |
 
 ## Design principles
 

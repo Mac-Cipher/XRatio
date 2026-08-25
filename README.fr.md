@@ -8,8 +8,8 @@
 
 XRatio est une application desktop tout-en-un pour piloter les ratios annoncés aux trackers BitTorrent. Elle réunit deux moteurs clairement séparés dans une interface Avalonia native, dense et conçue pour un usage quotidien :
 
-- **Interception** : un proxy local HTTP/HTTPS inspiré de [RatioGhost](https://github.com/ratioghost/ratioghost) réécrit les annonces d’un vrai client torrent.
-- **Simulation** : un moteur indépendant inspiré de [RatioMaster.NET](https://github.com/NikolayIT/RatioMaster.NET) charge un fichier `.torrent` et envoie des annonces avec des compteurs, vitesses et profils clients contrôlés.
+- **Interception** : un proxy local HTTP/HTTPS se place entre votre client torrent et le tracker, modifie les valeurs upload/download envoyées dans les annonces pour que le ratio annoncé puisse rester stable ou augmenter, sans toucher aux fichiers ni au trafic pair-à-pair.
+- **Simulation** : un moteur autonome lit un fichier `.torrent` et envoie des annonces contrôlées avec le profil client, les vitesses, la progression et les compteurs choisis ; il ne transfère pas les vrais fichiers du torrent.
 
 <p align="center">
   <img src="docs/screenshots/overview-light.png" alt="Vue d’ensemble actuelle de XRatio" width="1000">
@@ -55,12 +55,12 @@ XRatio est écrit en C#/.NET 10 et cible Windows en priorité. Le cœur et le pr
 
 ## Interface
 
-- **Overview** : état du proxy, torrents interceptés, simulations actives et upload reporté.
-- **Interception** : compteurs réels/reportés, peers, statut et dernière annonce par info-hash.
-- **Simulation** : import `.torrent`, tracker, profil client, vitesses, progression, start/stop/update/remove.
-- **Activity** : événements du proxy et des simulations.
-- **Settings** : choix de la langue, des thèmes et des accents, règles de ratio, journalisation, autostart, version installée et recherche de mises à jour GitHub.
-- **Platform** : activation HTTPS avec consentement explicite et gestion de la CA locale.
+- **Overview** : vérifiez si le proxy fonctionne, le nombre de torrents suivis, les simulations actives et l’upload annoncé.
+- **Interception** : comparez upload/download et ratio originaux et annoncés, peers, statut et dernière annonce pour chaque torrent.
+- **Simulation** : chargez un `.torrent`, choisissez le tracker et le profil client, réglez vitesses et progression, puis envoyez des annonces contrôlées sans transférer de fichiers.
+- **Activity** : lisez les événements du proxy et des simulations au fil de leur arrivée.
+- **Settings** : changez la langue, le thème, l’icône de notification, les règles de ratio, la journalisation, l’autostart et les mises à jour.
+- **Platform** : gérez le démarrage et la zone de notification, puis approuvez ou retirez la CA locale pour l’interception HTTPS des trackers.
 
 Les simulations configurées sont enregistrées dans `%APPDATA%\XRatio\simulations.json` et restaurées arrêtées. Le mot de passe proxy n’est jamais persisté.
 
