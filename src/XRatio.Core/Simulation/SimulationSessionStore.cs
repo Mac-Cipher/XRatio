@@ -8,6 +8,7 @@ public sealed record SavedSimulationSession
 {
     public required string TorrentPath { get; init; }
     public required string Tracker { get; init; }
+    public string? AccountName { get; init; }
     public string ClientProfileId { get; init; } = SimulationDefaults.ClientProfileId;
     public long UploadBytesPerSecond { get; init; } = SimulationDefaults.UploadBytesPerSecond;
     public long DownloadBytesPerSecond { get; init; } = SimulationDefaults.DownloadBytesPerSecond;
@@ -44,6 +45,7 @@ public sealed record SavedSimulationSession
         {
             Torrent = torrent,
             Tracker = tracker,
+            AccountName = NormalizeAccountName(AccountName),
             ClientProfileId = ClientProfileId,
             UploadBytesPerSecond = UploadBytesPerSecond,
             DownloadBytesPerSecond = DownloadBytesPerSecond,
@@ -69,6 +71,7 @@ public sealed record SavedSimulationSession
     {
         TorrentPath = options.Torrent.SourcePath,
         Tracker = options.Tracker.ToString(),
+        AccountName = NormalizeAccountName(options.AccountName),
         ClientProfileId = options.ClientProfileId,
         UploadBytesPerSecond = options.UploadBytesPerSecond,
         DownloadBytesPerSecond = options.DownloadBytesPerSecond,
@@ -92,6 +95,9 @@ public sealed record SavedSimulationSession
 
     private static long LegacyRandomMaximum(long baseline, int variationPercent) =>
         Math.Clamp(baseline, 0, SimulationOptions.MaximumTransferRateBytesPerSecond) * variationPercent / 100;
+
+    private static string? NormalizeAccountName(string? accountName) =>
+        string.IsNullOrWhiteSpace(accountName) ? null : accountName.Trim();
 }
 
 public sealed class SimulationSessionStore

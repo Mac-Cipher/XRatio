@@ -7,6 +7,7 @@ public sealed record SimulationFormSettings
 {
     public string? TorrentPath { get; init; }
     public string? Tracker { get; init; }
+    public string AccountName { get; init; } = string.Empty;
     public string ClientProfileId { get; init; } = SimulationDefaults.ClientProfileId;
     public string UploadKiBPerSecond { get; init; } = SimulationDefaults.UploadKiBPerSecond.ToString();
     public string DownloadKiBPerSecond { get; init; } = SimulationDefaults.DownloadKiBPerSecond.ToString();
@@ -31,7 +32,9 @@ public sealed record XRatioSettings
     public const int MaxPersistedTorrents = 2048;
     public string ThemeMode { get; init; } = "Light";
     public string AccentColor { get; init; } = "Blue";
+    public string TrayIconStyle { get; init; } = "Color";
     public string Language { get; init; } = "French";
+    public bool ShowTrayIcon { get; init; } = true;
     public int ListenPort { get; init; } = 3773;
     public bool OnlyTrackerTraffic { get; init; } = true;
     public bool OnlyLocalConnections { get; init; } = true;
@@ -61,6 +64,8 @@ public sealed record XRatioSettings
     {
         if (AccentColor is not ("Blue" or "Teal" or "Violet" or "Amber" or "Rose" or "Green"))
             throw new ArgumentOutOfRangeException(nameof(AccentColor));
+        if (TrayIconStyle is not ("Color" or "Monochrome"))
+            throw new ArgumentOutOfRangeException(nameof(TrayIconStyle));
         if (!OnlyLocalConnections)
             throw new InvalidOperationException("Remote proxy listening is disabled because it has no authentication boundary.");
         if (ListenPort is < 1 or > 65534)

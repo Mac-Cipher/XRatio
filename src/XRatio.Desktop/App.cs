@@ -16,6 +16,10 @@ namespace XRatio.Desktop;
 public sealed class App : Application
 {
     private TrayIcon? _trayIcon;
+    private WindowIcon? _colorTrayIcon;
+    private WindowIcon? _monochromeTrayIcon;
+    private WindowIcon? _stopTrayIcon;
+    private WindowIcon? _pauseTrayIcon;
 
     public override void Initialize()
     {
@@ -66,26 +70,44 @@ public sealed class App : Application
             // The Windows tray path is validated end-to-end. Keep non-Windows
             // backends window-only until their native tray integration is tested.
             if (ShouldCreateTrayIcon(OperatingSystem.IsWindows()))
-                _trayIcon = CreateTrayIcon(window, desktop);
+                _trayIcon = CreateTrayIcon(window);
         }
         base.OnFrameworkInitializationCompleted();
     }
 
-    private static TrayIcon CreateTrayIcon(
-        MainWindow window,
-        IClassicDesktopStyleApplicationLifetime desktop)
+    private TrayIcon CreateTrayIcon(MainWindow window)
     {
         var tray = new TrayIcon
         {
-            Icon = CreateAppIcon(),
+            Icon = GetTrayIcon(
+                window.IsProxyRunning,
+                window.IsProxyPaused,
+                window.UseMonochromeTrayIcon),
             ToolTipText = FormatTrayToolTip(window.IsProxyRunning, window.IsProxyPaused),
             Menu = BuildTrayMenu(window),
-            IsVisible = true
+            IsVisible = window.IsTrayIconEnabled
         };
         window.RuntimeStateChanged += (isRunning, isPaused) =>
+        {
             tray.ToolTipText = FormatTrayToolTip(isRunning, isPaused);
+            tray.Icon = GetTrayIcon(isRunning, isPaused, window.UseMonochromeTrayIcon);
+            tray.IsVisible = window.IsTrayIconEnabled;
+        };
         tray.Clicked += (_, _) => window.ShowFromTray();
         return tray;
+    }
+
+    private WindowIcon GetTrayIcon(bool isRunning, bool isPaused, bool monochrome)
+    {
+        // Monochrome is an explicit user override: it must not leak the
+        // red/orange state colors into the notification area.
+        if (monochrome)
+            return _monochromeTrayIcon ??= TrayIconRenderer.CreateMonochromeIcon();
+        if (!isRunning)
+            return _stopTrayIcon ??= TrayIconRenderer.CreateStopIcon();
+        if (isPaused)
+            return _pauseTrayIcon ??= TrayIconRenderer.CreatePauseIcon();
+        return _colorTrayIcon ??= CreateAppIcon();
     }
 
     internal static string FormatTrayToolTip(bool isRunning, bool isPaused) =>

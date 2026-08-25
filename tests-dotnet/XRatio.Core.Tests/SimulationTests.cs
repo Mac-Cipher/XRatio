@@ -14,9 +14,14 @@ public sealed class SimulationTests
         var snapshot = new SimulationSnapshot(
             Guid.NewGuid(), "torrent", "hash", "https://tracker.test", "client",
             SimulationState.Running, 0, 250, 750, 0, 0, 0, 0,
-            TimeSpan.Zero, null, null);
+            TimeSpan.Zero, null, null)
+        {
+            AccountName = "BBouche75"
+        };
 
         Assert.Equal(25, snapshot.CompletionPercent);
+        Assert.Equal("tracker.test", snapshot.TrackerName);
+        Assert.Equal("BBouche75", snapshot.AccountName);
     }
 
     [Fact]
@@ -26,7 +31,8 @@ public sealed class SimulationTests
         var options = new SimulationOptions
         {
             Torrent = new TorrentMetadata("demo.torrent", "Demo", new string('A', 40), 1024, 1, true, [tracker]),
-            Tracker = tracker
+            Tracker = tracker,
+            AccountName = "  BBouche75  "
         };
 
         Assert.Equal("qbittorrent-5.2", options.ClientProfileId);
@@ -39,6 +45,7 @@ public sealed class SimulationTests
         Assert.Equal(5_000 * 1024L, options.RandomDownloadMinimumBytesPerSecond);
         Assert.Equal(12_500 * 1024L, options.RandomDownloadMaximumBytesPerSecond);
         Assert.Equal(0, options.InitialCompletedPercent);
+        Assert.Equal("  BBouche75  ", options.AccountName);
 
         var profile = ClientProfileCatalog.Get(options.ClientProfileId);
         Assert.Equal("qBittorrent 5.2.3", profile.DisplayName);
@@ -110,10 +117,13 @@ public sealed class SimulationTests
         {
             Torrent = new TorrentMetadata("demo.torrent", "Demo", new string('A', 40), 1024, 1, true, [tracker]),
             Tracker = tracker,
+            AccountName = "BBouche75",
             UploadBytesPerSecond = 0,
             DownloadBytesPerSecond = 0
         };
         await using var session = new SimulationSession(options, fake);
+        Assert.Equal("BBouche75", session.Snapshot.AccountName);
+        Assert.Equal("tracker.test", session.Snapshot.TrackerName);
 
         await session.StartAsync();
         await session.UpdateNowAsync();
@@ -258,6 +268,7 @@ public sealed class SimulationTests
             {
                 TorrentPath = "demo.torrent",
                 Tracker = "https://tracker.test/announce",
+                AccountName = "BBouche75",
                 RandomUploadEnabled = true,
                 RandomUploadMinimumBytesPerSecond = 1024,
                 RandomUploadMaximumBytesPerSecond = 10 * 1024,
@@ -277,6 +288,7 @@ public sealed class SimulationTests
             Assert.Equal(5 * 1024, loaded.RandomDownloadMinimumBytesPerSecond);
             Assert.Equal(12_500 * 1024, loaded.RandomDownloadMaximumBytesPerSecond);
             Assert.Equal(900, loaded.AnnounceIntervalSeconds);
+            Assert.Equal("BBouche75", loaded.AccountName);
         }
         finally
         {
