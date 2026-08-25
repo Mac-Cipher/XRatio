@@ -12,7 +12,7 @@ XRatio est une application desktop tout-en-un pour piloter les ratios annoncés 
 - **Simulation** : un moteur indépendant inspiré de [RatioMaster.NET](https://github.com/NikolayIT/RatioMaster.NET) charge un fichier `.torrent` et envoie des annonces avec des compteurs, vitesses et profils clients contrôlés.
 
 <p align="center">
-  <img src="docs/screenshots/overview-current.png" alt="Vue d’ensemble actuelle de XRatio" width="1000">
+  <img src="docs/screenshots/overview-light.png" alt="Vue d’ensemble actuelle de XRatio" width="1000">
 </p>
 
 <p align="center">
