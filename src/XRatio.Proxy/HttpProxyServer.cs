@@ -7,6 +7,7 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Collections.Concurrent;
+using System.Buffers;
 using XRatio.Core.Announcements;
 using XRatio.Core.Configuration;
 using XRatio.Core.Platform;
@@ -19,11 +20,15 @@ public sealed class HttpProxyServer : IAsyncDisposable
     private const int MaximumHeaderBytes = 64 * 1024;
     private const int MaximumTrackerResponseBytes = 4 * 1024 * 1024;
     private const int MaximumOutboundAttempts = 2;
+    private const int HeaderReadBufferBytes = 8 * 1024;
+    private const int TunnelCopyBufferBytes = 16 * 1024;
     private static readonly TimeSpan DefaultHeaderReadTimeout = TimeSpan.FromSeconds(10);
-    private static readonly IReadOnlySet<string> ForwardedRequestHeaders =
+    private static readonly byte[] ConnectionEstablishedResponse =
+        "HTTP/1.1 200 Connection Established\r\n\r\n"u8.ToArray();
+    private static readonly IReadOnlySet<string> ExcludedResponseHeaders =
         new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            "Accept", "Accept-Encoding", "User-Agent"
+            "Content-Length", "Transfer-Encoding", "Connection"
         };
     private static readonly TimeSpan OutboundRetryDelay = TimeSpan.FromMilliseconds(250);
     private readonly AnnounceTransformer _transformer;
@@ -148,8 +153,26 @@ public sealed class HttpProxyServer : IAsyncDisposable
     {
         while (!cancellationToken.IsCancellationRequested)
         {
-            var client = await listener.AcceptTcpClientAsync(cancellationToken);
-            TrackConnection(client, cancellationToken);
+            // Acquire a slot before accepting so a burst of stalled clients is
+            // kept in the OS listen backlog instead of becoming one managed
+            // task per socket. The handler owns and releases the slot.
+            await _connectionLimit.WaitAsync(cancellationToken);
+            TcpClient? client = null;
+            try
+            {
+                client = await listener.AcceptTcpClientAsync(cancellationToken);
+                var acceptedClient = client;
+                client = null;
+                TrackConnection(acceptedClient, cancellationToken);
+            }
+            finally
+            {
+                if (client is not null)
+                {
+                    client.Dispose();
+                    _connectionLimit.Release();
+                }
+            }
         }
     }
 
@@ -158,7 +181,13 @@ public sealed class HttpProxyServer : IAsyncDisposable
         var id = Interlocked.Increment(ref _connectionSequence);
         var task = HandleBoundedAsync(client, cancellationToken);
         if (!_activeConnections.TryAdd(id, task))
-            throw new InvalidOperationException("Could not track an accepted proxy connection.");
+        {
+            client.Dispose();
+            // The handler still owns the semaphore slot and releases it from
+            // its finally block. A failed dictionary insertion is not expected
+            // with the monotonic connection id, but it must not leak a socket.
+            return;
+        }
         _ = RemoveCompletedConnectionAsync(id, task);
     }
 
@@ -181,13 +210,12 @@ public sealed class HttpProxyServer : IAsyncDisposable
         }
     }
 
-    private async Task HandleBoundedAsync(TcpClient client, CancellationToken cancellationToken)
+    private async Task HandleBoundedAsync(
+        TcpClient client,
+        CancellationToken cancellationToken)
     {
-        var acquired = false;
         try
         {
-            await _connectionLimit.WaitAsync(cancellationToken);
-            acquired = true;
             await HandleClientAsync(client, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -210,14 +238,13 @@ public sealed class HttpProxyServer : IAsyncDisposable
         finally
         {
             client.Dispose();
-            if (acquired)
-                _connectionLimit.Release();
+            _connectionLimit.Release();
         }
     }
 
     private async Task HandleClientAsync(TcpClient client, CancellationToken cancellationToken)
     {
-        await using var clientStream = client.GetStream();
+        await using var clientStream = new BufferedReadStream(client.GetStream());
         var headerBytes = await ReadHeadersWithTimeoutAsync(clientStream, cancellationToken);
         if (headerBytes is null)
         {
@@ -294,7 +321,7 @@ public sealed class HttpProxyServer : IAsyncDisposable
 
         using var serverCertificate = await _certificates.GetServerCertificateAsync(host, cancellationToken);
         await clientStream.WriteAsync(
-            "HTTP/1.1 200 Connection Established\r\n\r\n"u8.ToArray(),
+            ConnectionEstablishedResponse,
             cancellationToken);
         await clientStream.FlushAsync(cancellationToken);
 
@@ -316,12 +343,13 @@ public sealed class HttpProxyServer : IAsyncDisposable
             },
             handshakeTimeout.Token);
 
-        var decryptedHeaders = await ReadHeadersWithTimeoutAsync(tlsStream, cancellationToken);
+        await using var decryptedStream = new BufferedReadStream(tlsStream);
+        var decryptedHeaders = await ReadHeadersWithTimeoutAsync(decryptedStream, cancellationToken);
         if (decryptedHeaders is null)
             return;
         if (!HasHeaderTerminator(decryptedHeaders))
         {
-            await WriteErrorAsync(tlsStream, 400, "Incomplete request headers", cancellationToken);
+            await WriteErrorAsync(decryptedStream, 400, "Incomplete request headers", cancellationToken);
             return;
         }
         var lines = Encoding.Latin1.GetString(decryptedHeaders)
@@ -331,13 +359,13 @@ public sealed class HttpProxyServer : IAsyncDisposable
             !firstLine[0].Equals("GET", StringComparison.OrdinalIgnoreCase) ||
             !Uri.TryCreate(firstLine[1], UriKind.RelativeOrAbsolute, out var requestTarget))
         {
-            await WriteErrorAsync(tlsStream, 400, "Only HTTPS GET tracker requests are supported", cancellationToken);
+            await WriteErrorAsync(decryptedStream, 400, "Only HTTPS GET tracker requests are supported", cancellationToken);
             return;
         }
 
         if (!TryGetHostHeader(lines, port, out var headerHost))
         {
-            await WriteErrorAsync(tlsStream, 400, "Invalid HTTPS Host header", cancellationToken);
+            await WriteErrorAsync(decryptedStream, 400, "Invalid HTTPS Host header", cancellationToken);
             return;
         }
 
@@ -351,7 +379,7 @@ public sealed class HttpProxyServer : IAsyncDisposable
                 requestTarget.Port != port)
             {
                 await WriteErrorAsync(
-                    tlsStream,
+                    decryptedStream,
                     400,
                     "HTTPS request target must match the CONNECT authority",
                     cancellationToken);
@@ -364,7 +392,7 @@ public sealed class HttpProxyServer : IAsyncDisposable
             var resource = firstLine[1].StartsWith('/') ? firstLine[1] : "/" + firstLine[1];
             target = BuildHttpsTarget(requestHost, port, resource);
         }
-        await ForwardHttpRequestAsync(tlsStream, lines, target, settings, cancellationToken);
+        await ForwardHttpRequestAsync(decryptedStream, lines, target, settings, cancellationToken);
     }
 
     private async Task ForwardHttpRequestAsync(
@@ -388,7 +416,7 @@ public sealed class HttpProxyServer : IAsyncDisposable
         {
             response = await SendTrackerRequestAsync(
                 result.Target,
-                lines.Skip(1),
+                lines,
                 result.InfoHash is not null,
                 cancellationToken);
         }
@@ -433,12 +461,18 @@ public sealed class HttpProxyServer : IAsyncDisposable
 
     private async Task<HttpResponseMessage> SendTrackerRequestAsync(
         Uri target,
-        IEnumerable<string> headerLines,
+        string[] headerLines,
         bool isTrackerRequest,
         CancellationToken cancellationToken)
     {
         Exception? lastException = null;
-        foreach (var candidate in GetTrackerRequestCandidates(target, isTrackerRequest))
+        // Keep the optional fallback same-origin and limited to tracker
+        // announces; TrackerClient performs that validation for us.
+        var fallback = isTrackerRequest
+            ? TrackerClient.BuildHttpsFallbackUri(target)
+            : null;
+        var candidate = target;
+        for (var candidateIndex = 0; candidateIndex < (fallback is null ? 1 : 2); candidateIndex++)
         {
             for (var attempt = 1; attempt <= MaximumOutboundAttempts; attempt++)
             {
@@ -459,25 +493,11 @@ public sealed class HttpProxyServer : IAsyncDisposable
                         await Task.Delay(OutboundRetryDelay, cancellationToken);
                 }
             }
+
+            candidate = fallback!;
         }
 
         throw lastException ?? new InvalidOperationException("The tracker request ended without a response.");
-    }
-
-    private static IEnumerable<Uri> GetTrackerRequestCandidates(Uri target, bool isTrackerRequest)
-    {
-        yield return target;
-
-        // Some trackers advertise an HTTP announce URL on a dedicated port but
-        // only serve the same announce path over HTTPS on 443. Keep this
-        // fallback same-origin and limited to DNS HTTP targets so an upstream
-        // failure cannot turn into an arbitrary redirect or tunnel.
-        if (!isTrackerRequest)
-            yield break;
-
-        var httpsFallback = TrackerClient.BuildHttpsFallbackUri(target);
-        if (httpsFallback is not null)
-            yield return httpsFallback;
     }
 
     private static bool IsOutboundFailure(Exception exception) =>
@@ -509,16 +529,17 @@ public sealed class HttpProxyServer : IAsyncDisposable
         !string.IsNullOrWhiteSpace(host) && Uri.CheckHostName(host) == UriHostNameType.Dns;
 
     private static bool TryGetHostHeader(
-        IEnumerable<string> lines,
+        string[] lines,
         int expectedPort,
         out string? host)
     {
         host = null;
         string? value = null;
-        foreach (var line in lines.Skip(1))
+        for (var i = 1; i < lines.Length; i++)
         {
+            var line = lines[i];
             var colon = line.IndexOf(':');
-            if (colon <= 0 || !line[..colon].Trim().Equals("Host", StringComparison.OrdinalIgnoreCase))
+            if (colon <= 0 || !line.AsSpan(0, colon).Trim().Equals("Host", StringComparison.OrdinalIgnoreCase))
                 continue;
             if (value is not null)
                 return false;
@@ -534,7 +555,7 @@ public sealed class HttpProxyServer : IAsyncDisposable
         out string host)
     {
         host = string.Empty;
-        if (value.Length == 0 || value.Any(char.IsWhiteSpace) ||
+        if (value.Length == 0 || ContainsWhitespace(value.AsSpan()) ||
             !Uri.TryCreate($"https://{value}", UriKind.Absolute, out var parsed) ||
             parsed.UserInfo.Length > 0 ||
             parsed.AbsolutePath != "/" ||
@@ -548,6 +569,17 @@ public sealed class HttpProxyServer : IAsyncDisposable
 
         host = parsed.Host;
         return true;
+    }
+
+    private static bool ContainsWhitespace(ReadOnlySpan<char> value)
+    {
+        foreach (var character in value)
+        {
+            if (char.IsWhiteSpace(character))
+                return true;
+        }
+
+        return false;
     }
 
     private static string FormatEndpoint(Uri target)
@@ -607,14 +639,13 @@ public sealed class HttpProxyServer : IAsyncDisposable
                 return false;
             host = authority[..colon];
             portText = authority[(colon + 1)..];
-            if (host.Any(character =>
-                    char.IsWhiteSpace(character) || character is '/' or '\\' or '@' or '?' or '#') ||
+            if (ContainsInvalidAuthorityHostCharacter(host.AsSpan()) ||
                 Uri.CheckHostName(host) == UriHostNameType.Unknown)
                 return false;
         }
 
         if (portText.Length == 0 ||
-            portText.Any(character => character is < '0' or > '9') ||
+            !ContainsOnlyDigits(portText.AsSpan()) ||
             !int.TryParse(portText, out port) ||
             port is < 1 or > 65535)
         {
@@ -622,6 +653,28 @@ public sealed class HttpProxyServer : IAsyncDisposable
             port = 0;
             return false;
         }
+        return true;
+    }
+
+    private static bool ContainsInvalidAuthorityHostCharacter(ReadOnlySpan<char> value)
+    {
+        foreach (var character in value)
+        {
+            if (char.IsWhiteSpace(character) || character is '/' or '\\' or '@' or '?' or '#')
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool ContainsOnlyDigits(ReadOnlySpan<char> value)
+    {
+        foreach (var character in value)
+        {
+            if (character is < '0' or > '9')
+                return false;
+        }
+
         return true;
     }
 
@@ -637,58 +690,113 @@ public sealed class HttpProxyServer : IAsyncDisposable
         using var remote = new TcpClient();
         await remote.ConnectAsync(host, port, cancellationToken);
         await clientStream.WriteAsync(
-            "HTTP/1.1 200 Connection Established\r\n\r\n"u8.ToArray(),
+            ConnectionEstablishedResponse,
             cancellationToken);
         await clientStream.FlushAsync(cancellationToken);
         await using var remoteStream = remote.GetStream();
-        var outbound = clientStream.CopyToAsync(remoteStream, cancellationToken);
-        var inbound = remoteStream.CopyToAsync(clientStream, cancellationToken);
+        var outbound = clientStream.CopyToAsync(remoteStream, TunnelCopyBufferBytes, cancellationToken);
+        var inbound = remoteStream.CopyToAsync(clientStream, TunnelCopyBufferBytes, cancellationToken);
         await Task.WhenAny(outbound, inbound);
     }
 
-    private static void CopyRequestHeaders(IEnumerable<string> lines, HttpRequestMessage request)
+    private static void CopyRequestHeaders(string[] lines, HttpRequestMessage request)
     {
-        foreach (var line in lines)
+        for (var i = 1; i < lines.Length; i++)
         {
+            var line = lines[i];
             var colon = line.IndexOf(':');
             if (colon <= 0)
                 continue;
-            var name = line[..colon].Trim();
-            if (!ForwardedRequestHeaders.Contains(name))
+            var name = line.AsSpan(0, colon).Trim();
+            if (!IsForwardedRequestHeader(name))
                 continue;
-            request.Headers.TryAddWithoutValidation(name, line[(colon + 1)..].Trim());
+            request.Headers.TryAddWithoutValidation(
+                name.ToString(),
+                line[(colon + 1)..].Trim());
         }
         request.Headers.ConnectionClose = true;
     }
 
-    private static async Task<byte[]?> ReadHeadersAsync(Stream stream, CancellationToken cancellationToken)
+    private static bool IsForwardedRequestHeader(ReadOnlySpan<char> name) =>
+        name.Equals("Accept", StringComparison.OrdinalIgnoreCase) ||
+        name.Equals("Accept-Encoding", StringComparison.OrdinalIgnoreCase) ||
+        name.Equals("User-Agent", StringComparison.OrdinalIgnoreCase);
+
+    private static async Task<byte[]?> ReadHeadersAsync(
+        BufferedReadStream stream,
+        CancellationToken cancellationToken)
     {
-        using var buffer = new MemoryStream();
-        var current = new byte[1];
+        var header = ArrayPool<byte>.Shared.Rent(HeaderReadBufferBytes);
+        var readBuffer = ArrayPool<byte>.Shared.Rent(HeaderReadBufferBytes);
+        var length = 0;
         var state = 0;
-        while (buffer.Length <= MaximumHeaderBytes)
+        var previousWasLineFeed = false;
+        try
         {
-            var read = await stream.ReadAsync(current, cancellationToken);
-            if (read == 0)
-                return buffer.Length == 0 ? [] : buffer.ToArray();
-            buffer.WriteByte(current[0]);
-            state = (state, current[0]) switch
+            while (true)
             {
-                (0, 13) => 1,
-                (1, 10) => 2,
-                (2, 13) => 3,
-                (3, 10) => 4,
-                (_, 10) => state == 2 ? 4 : 0,
-                _ => 0
-            };
-            if (state == 4)
-                return buffer.ToArray();
+                var read = await stream.ReadAsync(
+                    readBuffer.AsMemory(0, HeaderReadBufferBytes),
+                    cancellationToken);
+                if (read == 0)
+                    return CopyHeader(header, length);
+
+                for (var i = 0; i < read; i++)
+                {
+                    if (length >= MaximumHeaderBytes)
+                        return null;
+
+                    if (length == header.Length)
+                        header = GrowBuffer(header, length);
+                    var current = readBuffer[i];
+                    header[length++] = current;
+
+                    var complete = current == '\n' &&
+                                   (previousWasLineFeed || state == 3);
+                    if (complete)
+                    {
+                        var remaining = read - i - 1;
+                        if (remaining > 0)
+                            stream.PushBack(readBuffer.AsSpan(i + 1, remaining));
+                        return CopyHeader(header, length);
+                    }
+
+                    if (current == '\n')
+                    {
+                        previousWasLineFeed = true;
+                        state = state == 1 ? 2 : 0;
+                    }
+                    else
+                    {
+                        previousWasLineFeed = false;
+                        state = current == '\r'
+                            ? state == 2 ? 3 : 1
+                            : 0;
+                    }
+                }
+            }
         }
-        return null;
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(readBuffer);
+            ArrayPool<byte>.Shared.Return(header);
+        }
+    }
+
+    private static byte[]? CopyHeader(byte[] buffer, int length) =>
+        length == 0 ? [] : buffer.AsSpan(0, length).ToArray();
+
+    private static byte[] GrowBuffer(byte[] buffer, int length)
+    {
+        var requested = Math.Min(MaximumHeaderBytes, buffer.Length * 2);
+        var replacement = ArrayPool<byte>.Shared.Rent(requested);
+        buffer.AsSpan(0, length).CopyTo(replacement);
+        ArrayPool<byte>.Shared.Return(buffer);
+        return replacement;
     }
 
     private async Task<byte[]?> ReadHeadersWithTimeoutAsync(
-        Stream stream,
+        BufferedReadStream stream,
         CancellationToken cancellationToken)
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -703,16 +811,29 @@ public sealed class HttpProxyServer : IAsyncDisposable
         if (content.Headers.ContentLength > MaximumTrackerResponseBytes)
             throw new InvalidDataException("Tracker response exceeds 4 MiB.");
         await using var source = await content.ReadAsStreamAsync(cancellationToken);
-        using var destination = new MemoryStream();
-        var buffer = new byte[16 * 1024];
-        while (true)
+        var contentLength = content.Headers.ContentLength;
+        var capacity = contentLength is > 0 and <= MaximumTrackerResponseBytes
+            ? (int)contentLength.Value
+            : 0;
+        using var destination = new MemoryStream(capacity);
+        var buffer = ArrayPool<byte>.Shared.Rent(16 * 1024);
+        var length = 0;
+        try
         {
-            var read = await source.ReadAsync(buffer, cancellationToken);
-            if (read == 0)
-                return destination.ToArray();
-            if (destination.Length + read > MaximumTrackerResponseBytes)
-                throw new InvalidDataException("Tracker response exceeds 4 MiB.");
-            destination.Write(buffer, 0, read);
+            while (true)
+            {
+                var read = await source.ReadAsync(buffer.AsMemory(0, 16 * 1024), cancellationToken);
+                if (read == 0)
+                    return destination.ToArray();
+                if (length > MaximumTrackerResponseBytes - read)
+                    throw new InvalidDataException("Tracker response exceeds 4 MiB.");
+                destination.Write(buffer, 0, read);
+                length += read;
+            }
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
         }
     }
 
@@ -726,11 +847,7 @@ public sealed class HttpProxyServer : IAsyncDisposable
         builder.Append("HTTP/1.1 ").Append((int)response.StatusCode).Append(' ')
             .Append(response.ReasonPhrase).Append("\r\n");
         AppendHeaders(builder, response.Headers);
-        AppendHeaders(builder, response.Content.Headers,
-            excluded: new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-            {
-                "Content-Length", "Transfer-Encoding", "Connection"
-            });
+        AppendHeaders(builder, response.Content.Headers, excluded: ExcludedResponseHeaders);
         builder.Append("Content-Length: ").Append(body.Length).Append("\r\nConnection: close\r\n\r\n");
         await destination.WriteAsync(Encoding.Latin1.GetBytes(builder.ToString()), cancellationToken);
         await destination.WriteAsync(body, cancellationToken);
@@ -799,6 +916,163 @@ public sealed class HttpProxyServer : IAsyncDisposable
             $"HTTP/1.1 {status} {safeReason}\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: {body.Length}\r\nConnection: close\r\n\r\n");
         await stream.WriteAsync(header, cancellationToken);
         await stream.WriteAsync(body, cancellationToken);
+    }
+
+    /// <summary>
+    /// Keeps bytes read past the end of a header available to the next protocol
+    /// layer. This lets the header scanner use normal-sized reads without
+    /// consuming the first TLS record after CONNECT.
+    /// </summary>
+    private sealed class BufferedReadStream : Stream
+    {
+        private readonly Stream _inner;
+        private byte[]? _pending;
+        private int _pendingOffset;
+        private int _pendingCount;
+        private bool _disposed;
+
+        public BufferedReadStream(Stream inner)
+        {
+            _inner = inner;
+        }
+
+        public void PushBack(ReadOnlySpan<byte> bytes)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (bytes.IsEmpty)
+                return;
+
+            var required = checked(_pendingCount + bytes.Length);
+            if (_pending is null || _pending.Length < required)
+            {
+                var replacement = ArrayPool<byte>.Shared.Rent(
+                    Math.Max(HeaderReadBufferBytes, required));
+                bytes.CopyTo(replacement);
+                if (_pendingCount > 0)
+                    _pending.AsSpan(_pendingOffset, _pendingCount)
+                        .CopyTo(replacement.AsSpan(bytes.Length));
+                ReturnPendingBuffer();
+                _pending = replacement;
+                _pendingOffset = 0;
+                _pendingCount = required;
+                return;
+            }
+
+            if (_pendingOffset > 0 &&
+                _pendingOffset + _pendingCount + bytes.Length <= _pending.Length)
+            {
+                _pending.AsSpan(_pendingOffset, _pendingCount)
+                    .CopyTo(_pending.AsSpan(_pendingOffset + bytes.Length));
+                bytes.CopyTo(_pending.AsSpan(_pendingOffset));
+                _pendingCount = required;
+                return;
+            }
+
+            // The common path has no pending bytes. If a caller pushes back
+            // while bytes are already buffered, compact into the beginning.
+            _pending.AsSpan(_pendingOffset, _pendingCount)
+                .CopyTo(_pending.AsSpan(bytes.Length));
+            bytes.CopyTo(_pending);
+            _pendingOffset = 0;
+            _pendingCount = required;
+        }
+
+        public override async ValueTask<int> ReadAsync(
+            Memory<byte> buffer,
+            CancellationToken cancellationToken = default)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (_pendingCount == 0)
+                return await _inner.ReadAsync(buffer, cancellationToken);
+
+            var count = Math.Min(buffer.Length, _pendingCount);
+            _pending!.AsMemory(_pendingOffset, count).CopyTo(buffer);
+            _pendingOffset += count;
+            _pendingCount -= count;
+            if (_pendingCount == 0)
+                ReturnPendingBuffer();
+            return count;
+        }
+
+        public override int Read(Span<byte> buffer)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (_pendingCount == 0)
+                return _inner.Read(buffer);
+
+            var count = Math.Min(buffer.Length, _pendingCount);
+            _pending.AsSpan(_pendingOffset, count).CopyTo(buffer);
+            _pendingOffset += count;
+            _pendingCount -= count;
+            if (_pendingCount == 0)
+                ReturnPendingBuffer();
+            return count;
+        }
+
+        public override int Read(byte[] buffer, int offset, int count) =>
+            Read(buffer.AsSpan(offset, count));
+
+        public override ValueTask WriteAsync(
+            ReadOnlyMemory<byte> buffer,
+            CancellationToken cancellationToken = default) =>
+            _inner.WriteAsync(buffer, cancellationToken);
+
+        public override void Write(ReadOnlySpan<byte> buffer) => _inner.Write(buffer);
+
+        public override void Write(byte[] buffer, int offset, int count) =>
+            _inner.Write(buffer, offset, count);
+
+        public override void Flush() => _inner.Flush();
+
+        public override Task FlushAsync(CancellationToken cancellationToken) =>
+            _inner.FlushAsync(cancellationToken);
+
+        public override int ReadByte()
+        {
+            Span<byte> buffer = stackalloc byte[1];
+            return Read(buffer) == 0 ? -1 : buffer[0];
+        }
+
+        public override void WriteByte(byte value) => _inner.WriteByte(value);
+
+        public override long Seek(long offset, SeekOrigin origin) =>
+            _inner.Seek(offset, origin);
+
+        public override void SetLength(long value) => _inner.SetLength(value);
+
+        public override long Position
+        {
+            get => _inner.Position;
+            set => _inner.Position = value;
+        }
+
+        public override long Length => _inner.Length;
+
+        public override bool CanRead => !_disposed && _inner.CanRead;
+
+        public override bool CanSeek => !_disposed && _inner.CanSeek;
+
+        public override bool CanWrite => !_disposed && _inner.CanWrite;
+
+        protected override void Dispose(bool disposing)
+        {
+            if (!_disposed)
+            {
+                _disposed = true;
+                ReturnPendingBuffer();
+            }
+            base.Dispose(disposing);
+        }
+
+        private void ReturnPendingBuffer()
+        {
+            if (_pending is null)
+                return;
+            ArrayPool<byte>.Shared.Return(_pending);
+            _pending = null;
+            _pendingOffset = 0;
+            _pendingCount = 0;
+        }
     }
 
     public async ValueTask DisposeAsync()

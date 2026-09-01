@@ -1,5 +1,7 @@
+using System.Buffers;
 using System.Net;
 using System.Net.Sockets;
+using System.Text;
 using XRatio.Core.Announcements;
 
 namespace XRatio.Core.Simulation;
@@ -9,10 +11,14 @@ public interface ITrackerClient
     Task<TrackerAnnounceResult> AnnounceAsync(TrackerAnnounce announce, CancellationToken cancellationToken);
 }
 
-public sealed class TrackerClient : ITrackerClient
+public sealed class TrackerClient : ITrackerClient, IDisposable
 {
     private const int MaxTrackerResponseBytes = 4 * 1024 * 1024;
+    private const int ResponseReadBufferBytes = 16 * 1024;
     private readonly TimeSpan _timeout;
+    private readonly object _clientGate = new();
+    private readonly Dictionary<SimulationProxyOptions, HttpClient> _clients = [];
+    private bool _disposed;
 
     public TrackerClient(TimeSpan? timeout = null)
     {
@@ -24,8 +30,7 @@ public sealed class TrackerClient : ITrackerClient
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(announce);
-        using var handler = CreateHandler(announce.Proxy);
-        using var client = new HttpClient(handler) { Timeout = _timeout };
+        var client = GetClient(announce.Proxy);
         var originalUri = BuildUri(announce);
         var httpsFallback = BuildHttpsFallbackUri(originalUri);
         try
@@ -92,16 +97,27 @@ public sealed class TrackerClient : ITrackerClient
             if (response.Content.Headers.ContentLength > MaxTrackerResponseBytes)
                 throw new InvalidDataException("Tracker response exceeds 4 MiB.");
             await using var source = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-            using var destination = new MemoryStream();
-            var buffer = new byte[16 * 1024];
-            while (true)
+            var initialCapacity = response.Content.Headers.ContentLength is { } contentLength &&
+                                  contentLength is >= 0 and <= MaxTrackerResponseBytes
+                ? checked((int)contentLength)
+                : ResponseReadBufferBytes;
+            using var destination = new MemoryStream(initialCapacity);
+            var buffer = ArrayPool<byte>.Shared.Rent(ResponseReadBufferBytes);
+            try
             {
-                var read = await source.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
-                if (read == 0)
-                    break;
-                if (destination.Length + read > MaxTrackerResponseBytes)
-                    throw new InvalidDataException("Tracker response exceeds 4 MiB.");
-                destination.Write(buffer, 0, read);
+                while (true)
+                {
+                    var read = await source.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
+                    if (read == 0)
+                        break;
+                    if (destination.Length + read > MaxTrackerResponseBytes)
+                        throw new InvalidDataException("Tracker response exceeds 4 MiB.");
+                    destination.Write(buffer, 0, read);
+                }
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(buffer);
             }
 
             var parsed = TrackerResponseParser.Parse(destination.GetBuffer().AsSpan(0, checked((int)destination.Length)));
@@ -132,19 +148,36 @@ public sealed class TrackerClient : ITrackerClient
     public static Uri BuildUri(TrackerAnnounce announce)
     {
         var separator = string.IsNullOrEmpty(announce.Tracker.Query) ? "?" : "&";
-        var query = string.Join('&',
-            $"info_hash={PercentEncode(Convert.FromHexString(announce.InfoHashHex))}",
-            $"peer_id={PercentEncode(System.Text.Encoding.ASCII.GetBytes(announce.PeerId))}",
-            $"port={announce.Port}",
-            $"uploaded={announce.Uploaded}",
-            $"downloaded={announce.Downloaded}",
-            $"left={announce.Left}",
-            $"compact=1",
-            $"no_peer_id=1",
-            $"numwant={announce.NumWant}",
-            $"key={Uri.EscapeDataString(announce.Key)}",
-            announce.Event == TrackerEvent.None ? string.Empty : $"event={announce.Event.ToString().ToLowerInvariant()}");
-        return new Uri(announce.Tracker + separator + query.TrimEnd('&'));
+        var query = new StringBuilder(192);
+        query.Append("info_hash=");
+        AppendPercentEncodedHex(query, announce.InfoHashHex);
+        query.Append("&peer_id=");
+        AppendPercentEncodedAscii(query, announce.PeerId);
+        query.Append("&port=").Append(announce.Port);
+        query.Append("&uploaded=").Append(announce.Uploaded);
+        query.Append("&downloaded=").Append(announce.Downloaded);
+        query.Append("&left=").Append(announce.Left);
+        query.Append("&compact=1&no_peer_id=1&numwant=").Append(announce.NumWant);
+        query.Append("&key=").Append(Uri.EscapeDataString(announce.Key));
+        if (announce.Event != TrackerEvent.None)
+            query.Append("&event=").Append(GetEventName(announce.Event));
+
+        return new Uri(string.Concat(announce.Tracker, separator, query.ToString()));
+    }
+
+    private HttpClient GetClient(SimulationProxyOptions options)
+    {
+        lock (_clientGate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (_clients.TryGetValue(options, out var client))
+                return client;
+
+            var handler = CreateHandler(options);
+            client = new HttpClient(handler) { Timeout = _timeout };
+            _clients.Add(options, client);
+            return client;
+        }
     }
 
     private static HttpClientHandler CreateHandler(SimulationProxyOptions options)
@@ -152,7 +185,12 @@ public sealed class TrackerClient : ITrackerClient
         var handler = new HttpClientHandler
         {
             AllowAutoRedirect = false,
-            AutomaticDecompression = DecompressionMethods.All
+            AutomaticDecompression = DecompressionMethods.All,
+            // The previous implementation created a new handler for every
+            // announce, so cookies could never carry over between requests.
+            // Disable the container while reusing handlers to preserve that
+            // behavior and avoid an unnecessary per-handler allocation.
+            UseCookies = false
         };
         if (options.Address is null)
             return handler;
@@ -174,16 +212,66 @@ public sealed class TrackerClient : ITrackerClient
         original.Host.Equals(candidate.Host, StringComparison.OrdinalIgnoreCase) &&
         original.Port == candidate.Port && candidate.UserInfo.Length == 0;
 
-    private static string PercentEncode(ReadOnlySpan<byte> value)
+    private static void AppendPercentEncodedHex(StringBuilder output, string value)
     {
-        var chars = new char[value.Length * 3];
+        ArgumentNullException.ThrowIfNull(value);
+        if ((value.Length & 1) != 0)
+            throw new FormatException("The info hash must contain pairs of hexadecimal characters.");
+
         const string hex = "0123456789ABCDEF";
-        for (var index = 0; index < value.Length; index++)
+        for (var index = 0; index < value.Length; index += 2)
         {
-            chars[index * 3] = '%';
-            chars[(index * 3) + 1] = hex[value[index] >> 4];
-            chars[(index * 3) + 2] = hex[value[index] & 0x0F];
+            if (!TryHex(value[index], out var high) || !TryHex(value[index + 1], out var low))
+                throw new FormatException("The info hash must contain only hexadecimal characters.");
+            var byteValue = (high << 4) | low;
+            output.Append('%').Append(hex[byteValue >> 4]).Append(hex[byteValue & 0x0F]);
         }
-        return new string(chars);
+    }
+
+    private static void AppendPercentEncodedAscii(StringBuilder output, string value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        const string hex = "0123456789ABCDEF";
+        foreach (var character in value)
+        {
+            var byteValue = character <= 0x7F ? (byte)character : (byte)'?';
+            output.Append('%').Append(hex[byteValue >> 4]).Append(hex[byteValue & 0x0F]);
+        }
+    }
+
+    private static string GetEventName(TrackerEvent trackerEvent) => trackerEvent switch
+    {
+        TrackerEvent.Started => "started",
+        TrackerEvent.Completed => "completed",
+        TrackerEvent.Stopped => "stopped",
+        _ => trackerEvent.ToString().ToLowerInvariant()
+    };
+
+    private static bool TryHex(char value, out int result)
+    {
+        result = value switch
+        {
+            >= '0' and <= '9' => value - '0',
+            >= 'a' and <= 'f' => value - 'a' + 10,
+            >= 'A' and <= 'F' => value - 'A' + 10,
+            _ => -1
+        };
+        return result >= 0;
+    }
+
+    public void Dispose()
+    {
+        HttpClient[] clients;
+        lock (_clientGate)
+        {
+            if (_disposed)
+                return;
+            _disposed = true;
+            clients = _clients.Values.ToArray();
+            _clients.Clear();
+        }
+
+        foreach (var client in clients)
+            client.Dispose();
     }
 }

@@ -1,7 +1,10 @@
 [CmdletBinding()]
 param(
     [string]$OutputDirectory = (Join-Path $PSScriptRoot '..\artifacts\win-x64'),
-    [string]$ArchivePath = (Join-Path $PSScriptRoot '..\artifacts\XRatio-dotnet-win-x64.zip')
+    [string]$ArchivePath = (Join-Path $PSScriptRoot '..\artifacts\XRatio-dotnet-win-x64.zip'),
+    [string]$SigningPfxPath,
+    [SecureString]$SigningPfxPassword,
+    [string]$SigningTimestampServer = 'https://timestamp.digicert.com'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -25,6 +28,18 @@ $readmeCopy = Join-Path $OutputDirectory 'README.fr.md'
 Copy-Item -LiteralPath (Join-Path $repositoryRoot 'license.txt') -Destination $licenseCopy -Force
 Copy-Item -LiteralPath (Join-Path $repositoryRoot 'THIRD_PARTY_NOTICES.md') -Destination $noticeCopy -Force
 Copy-Item -LiteralPath (Join-Path $repositoryRoot 'README.fr.md') -Destination $readmeCopy -Force
+
+if (![string]::IsNullOrWhiteSpace($SigningPfxPath)) {
+    $signScript = Join-Path $PSScriptRoot 'sign-win-x64.ps1'
+    & $signScript `
+        -ExecutablePath $executable `
+        -PfxPath $SigningPfxPath `
+        -PfxPassword $SigningPfxPassword `
+        -TimestampServer $SigningTimestampServer
+    if ($LASTEXITCODE -ne 0) {
+        throw "Authenticode signing failed with exit code $LASTEXITCODE."
+    }
+}
 
 $archiveDirectory = Split-Path -Parent $ArchivePath
 if (![string]::IsNullOrWhiteSpace($archiveDirectory)) {

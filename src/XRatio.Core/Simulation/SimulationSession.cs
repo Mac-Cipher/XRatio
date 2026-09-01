@@ -2,7 +2,10 @@ namespace XRatio.Core.Simulation;
 
 public sealed class SimulationSession : IAsyncDisposable
 {
+    private static readonly TimeSpan SimulationTick = TimeSpan.FromSeconds(1);
     private readonly ITrackerClient _trackerClient;
+    private readonly bool _ownsTrackerClient;
+    private readonly ISimulationTickSource _tickSource;
     private readonly SimulationOptions _options;
     private readonly ClientProfile _profile;
     private readonly SimulationCounters _counters;
@@ -10,8 +13,11 @@ public sealed class SimulationSession : IAsyncDisposable
     private readonly string _key;
     private readonly Random _random;
     private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
+    private readonly object _disposeGate = new();
     private CancellationTokenSource? _runCancellation;
     private Task? _runTask;
+    private ISimulationTickSubscription? _tickSubscription;
+    private Task? _disposeTask;
     private DateTimeOffset? _startedAt;
     private DateTimeOffset? _nextAnnounce;
     private long _currentUploadRate;
@@ -21,15 +27,28 @@ public sealed class SimulationSession : IAsyncDisposable
     private string? _lastError;
     private bool _completedAnnounced;
 
-    public SimulationSession(SimulationOptions options, ITrackerClient? trackerClient = null, Random? random = null)
+    public SimulationSession(
+        SimulationOptions options,
+        ITrackerClient? trackerClient = null,
+        Random? random = null,
+        ISimulationTickSource? tickSource = null)
     {
         _options = options.Validate();
-        _trackerClient = trackerClient ?? new TrackerClient();
+        if (trackerClient is null)
+        {
+            _trackerClient = new TrackerClient();
+            _ownsTrackerClient = true;
+        }
+        else
+        {
+            _trackerClient = trackerClient;
+        }
         _profile = ClientProfileCatalog.Get(options.ClientProfileId);
         _counters = new SimulationCounters(options.Torrent.TotalSize, options.InitialCompletedPercent);
         _peerId = _profile.CreatePeerId();
         _key = ClientProfile.CreateKey();
         _random = random ?? Random.Shared;
+        _tickSource = tickSource ?? SimulationTickHub.Shared;
         Id = Guid.NewGuid();
         State = SimulationState.Stopped;
         _currentUploadRate = options.UploadBytesPerSecond;
@@ -77,6 +96,9 @@ public sealed class SimulationSession : IAsyncDisposable
                 ApplyResponse(response);
                 _startedAt = DateTimeOffset.UtcNow;
                 _runCancellation = new CancellationTokenSource();
+                _tickSubscription = await _tickSource
+                    .SubscribeAsync(_runCancellation.Token)
+                    .ConfigureAwait(false);
                 State = SimulationState.Running;
                 _runTask = RunAsync(_runCancellation.Token);
                 Log("Simulation started.");
@@ -84,6 +106,7 @@ public sealed class SimulationSession : IAsyncDisposable
             }
             catch (OperationCanceledException)
             {
+                await CleanupRunAsync().ConfigureAwait(false);
                 State = SimulationState.Stopped;
                 _nextAnnounce = null;
                 Publish();
@@ -91,6 +114,7 @@ public sealed class SimulationSession : IAsyncDisposable
             }
             catch (Exception exception)
             {
+                await CleanupRunAsync().ConfigureAwait(false);
                 State = SimulationState.Faulted;
                 _lastError = exception.Message;
                 Log($"Start failed: {exception.Message}");
@@ -166,13 +190,14 @@ public sealed class SimulationSession : IAsyncDisposable
 
     private async Task RunAsync(CancellationToken cancellationToken)
     {
+        var tickSubscription = _tickSubscription
+            ?? throw new InvalidOperationException("The simulation tick subscription is not available.");
         try
         {
-            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
-            while (await timer.WaitForNextTickAsync(cancellationToken).ConfigureAwait(false))
+            while (await tickSubscription.WaitForNextTickAsync(cancellationToken).ConfigureAwait(false))
             {
                 UpdateRates();
-                var completed = _counters.Advance(TimeSpan.FromSeconds(1), _currentUploadRate, _currentDownloadRate);
+                var completed = _counters.Advance(SimulationTick, _currentUploadRate, _currentDownloadRate);
                 if (completed && !_completedAnnounced)
                 {
                     ApplyResponse(await AnnounceAsync(TrackerEvent.Completed, cancellationToken).ConfigureAwait(false));
@@ -202,6 +227,35 @@ public sealed class SimulationSession : IAsyncDisposable
             Log($"Simulation failed: {exception.Message}");
             Publish();
         }
+        finally
+        {
+            if (ReferenceEquals(_tickSubscription, tickSubscription))
+                _tickSubscription = null;
+            await tickSubscription.DisposeAsync().ConfigureAwait(false);
+        }
+    }
+
+    private async Task CleanupRunAsync()
+    {
+        var cancellation = _runCancellation;
+        if (cancellation is not null)
+        {
+            await cancellation.CancelAsync().ConfigureAwait(false);
+            if (_runTask is not null)
+            {
+                try { await _runTask.ConfigureAwait(false); }
+                catch (OperationCanceledException) { }
+            }
+
+            _runTask = null;
+            _runCancellation = null;
+            cancellation.Dispose();
+        }
+
+        var subscription = _tickSubscription;
+        _tickSubscription = null;
+        if (subscription is not null)
+            await subscription.DisposeAsync().ConfigureAwait(false);
     }
 
     private Task<TrackerAnnounceResult> AnnounceAsync(TrackerEvent trackerEvent, CancellationToken cancellationToken) =>
@@ -265,10 +319,32 @@ public sealed class SimulationSession : IAsyncDisposable
     private void Publish() => Updated?.Invoke(this, Snapshot);
     private void Log(string message) => Logged?.Invoke(this, message);
 
-    public async ValueTask DisposeAsync()
+    public ValueTask DisposeAsync()
     {
-        await StopAsync(CancellationToken.None).ConfigureAwait(false);
-        _runCancellation?.Dispose();
-        _lifecycleGate.Dispose();
+        lock (_disposeGate)
+        {
+            _disposeTask ??= DisposeCoreAsync();
+            return new ValueTask(_disposeTask);
+        }
+    }
+
+    private async Task DisposeCoreAsync()
+    {
+        try
+        {
+            await StopAsync(CancellationToken.None).ConfigureAwait(false);
+        }
+        finally
+        {
+            _runCancellation?.Dispose();
+            _runCancellation = null;
+            var subscription = _tickSubscription;
+            _tickSubscription = null;
+            if (subscription is not null)
+                await subscription.DisposeAsync().ConfigureAwait(false);
+            if (_ownsTrackerClient && _trackerClient is IDisposable disposable)
+                disposable.Dispose();
+            _lifecycleGate.Dispose();
+        }
     }
 }

@@ -5,12 +5,12 @@ namespace XRatio.Core.Simulation;
 public static class SimulationDefaults
 {
     public const string ClientProfileId = "qbittorrent-5.2";
-    public const int UploadKiBPerSecond = 50_000;
-    public const int DownloadKiBPerSecond = 5_000;
-    public const int RandomUploadMinimumKiBPerSecond = 10_000;
-    public const int RandomUploadMaximumKiBPerSecond = 50_000;
-    public const int RandomDownloadMinimumKiBPerSecond = 5_000;
-    public const int RandomDownloadMaximumKiBPerSecond = 12_500;
+    public const int UploadKiBPerSecond = 10_000;
+    public const int DownloadKiBPerSecond = 2_500;
+    public const int RandomUploadMinimumKiBPerSecond = 5_000;
+    public const int RandomUploadMaximumKiBPerSecond = 15_000;
+    public const int RandomDownloadMinimumKiBPerSecond = 1_000;
+    public const int RandomDownloadMaximumKiBPerSecond = 5_000;
     public const long UploadBytesPerSecond = UploadKiBPerSecond * 1024L;
     public const long DownloadBytesPerSecond = DownloadKiBPerSecond * 1024L;
     public const long RandomUploadMinimumBytesPerSecond = RandomUploadMinimumKiBPerSecond * 1024L;

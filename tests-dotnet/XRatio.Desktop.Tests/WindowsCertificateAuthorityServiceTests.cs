@@ -356,6 +356,14 @@ public sealed class WindowsCertificateAuthorityServiceTests
                 thumbprint,
                 StringComparison.OrdinalIgnoreCase);
 
+        public X509Certificate2? FindTrusted(string thumbprint) =>
+            string.Equals(
+                TrustedCertificate?.Thumbprint,
+                thumbprint,
+                StringComparison.OrdinalIgnoreCase)
+                ? ClonePublic(TrustedCertificate!)
+                : null;
+
         public X509Certificate2? FindPrivate(string thumbprint) =>
             string.Equals(
                 PrivateCertificate?.Thumbprint,
@@ -418,6 +426,9 @@ public sealed class WindowsCertificateAuthorityServiceTests
                 certificate.Export(X509ContentType.Pfx),
                 null,
                 X509KeyStorageFlags.EphemeralKeySet | X509KeyStorageFlags.Exportable);
+
+        private static X509Certificate2 ClonePublic(X509Certificate2 certificate) =>
+            X509CertificateLoader.LoadCertificate(certificate.Export(X509ContentType.Cert));
     }
 }
 

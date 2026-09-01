@@ -1,0 +1,31 @@
+name: Question or help
+description: Ask for help using or configuring XRatio.
+title: "[Question]: "
+labels:
+  - question
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please include the setup details needed to answer your question without exposing private credentials.
+  - type: input
+    id: version
+    attributes:
+      label: XRatio version
+      placeholder: e.g. v1.0.0
+    validations:
+      required: false
+  - type: textarea
+    id: question
+    attributes:
+      label: What do you need help with?
+      placeholder: I am trying to ...
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: What have you tried?
+      description: Include relevant settings, steps, or screenshots. Remove private data first.
+    validations:
+      required: false

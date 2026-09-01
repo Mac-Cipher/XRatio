@@ -15,6 +15,47 @@ public sealed record TorrentMetadata(
     public const int MaxTorrentFileBytes = 16 * 1024 * 1024;
     public const int MaxTrackers = 256;
 
+    /// <summary>
+    /// Reads only the display identity from a torrent file. qBittorrent can
+    /// retain metadata without an announce URL (for example magnet-derived
+    /// torrents), so this deliberately does not require a usable tracker or
+    /// a complete simulation profile.
+    /// </summary>
+    public static bool TryLoadIdentity(string path, out TorrentIdentity? identity)
+    {
+        identity = null;
+        try
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(path);
+            var fullPath = Path.GetFullPath(path);
+            var file = new FileInfo(fullPath);
+            if (!file.Exists || file.Length <= 0 || file.Length > MaxTorrentFileBytes)
+                return false;
+
+            var bytes = File.ReadAllBytes(fullPath);
+            if (new BencodeReader(bytes).ReadRoot() is not BencodeDictionary root ||
+                !root.Values.TryGetValue("info", out var infoNode) ||
+                infoNode is not BencodeDictionary info)
+                return false;
+
+            var name = ReadText(info, "name.utf-8") ?? ReadText(info, "name");
+            if (string.IsNullOrWhiteSpace(name))
+                return false;
+
+            var infoBytes = bytes.AsSpan(info.StartOffset, info.EndOffset - info.StartOffset);
+            identity = new TorrentIdentity(
+                fullPath,
+                name,
+                Convert.ToHexString(SHA1.HashData(infoBytes)));
+            return true;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or
+                                          ArgumentException or OverflowException or TorrentParseException)
+        {
+            return false;
+        }
+    }
+
     public static TorrentMetadata Load(string path)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
@@ -120,6 +161,8 @@ public sealed record TorrentMetadata(
         }
     }
 }
+
+public sealed record TorrentIdentity(string SourcePath, string Name, string InfoHashHex);
 
 public sealed class TorrentParseException : Exception
 {

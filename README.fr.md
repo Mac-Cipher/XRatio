@@ -12,7 +12,7 @@ XRatio est une application desktop tout-en-un pour piloter les ratios annoncés 
 - **Simulation** : un moteur autonome inspiré de [RatioMaster.NET](https://github.com/NikolayIT/RatioMaster.NET) lit un fichier `.torrent` et envoie des annonces contrôlées avec le profil client, les vitesses, la progression et les compteurs choisis ; il ne transfère pas les vrais fichiers du torrent.
 
 <p align="center">
-  <img src="docs/screenshots/overview-light.png" alt="Vue d’ensemble actuelle de XRatio" width="1000">
+  <img src="docs/screenshots/overview-dim-theme.png" alt="Vue d’ensemble actuelle de XRatio en français" width="1000">
 </p>
 
 <p align="center">
@@ -32,6 +32,8 @@ XRatio est écrit en C#/.NET 10 et cible Windows en priorité. Le cœur et le pr
 3. Vérifiez que l’en-tête indique le proxy local sur `127.0.0.1:3773`.
 4. Laissez les simulations arrêtées, sauf si vous souhaitez lancer volontairement une session torrent contrôlée séparée.
 
+Sous Windows, XRatio vérifie la release officielle au démarrage. Lorsqu’une version packagée plus récente est disponible, il télécharge `XRatio.exe` et son SHA-256 publié, vérifie les deux, ferme XRatio, remplace l’exécutable actif, supprime l’ancien et relance la nouvelle version. Les réglages de `%APPDATA%\XRatio` sont conservés. Une exécution de développement ne se remplace pas automatiquement ; la page de release reste accessible.
+
 ### Configurer qBittorrent
 
 Les mêmes options existent dans la plupart des clients compatibles avec un proxy HTTP. Arrêtez les torrents actifs avant de modifier la configuration.
@@ -41,9 +43,9 @@ Les mêmes options existent dans la plupart des clients compatibles avec un prox
 3. Activez **Utiliser le proxy pour les communications BitTorrent** et **Résoudre les noms d’hôtes via le proxy**.
 4. Laissez **Utiliser le proxy pour les connexions pair-à-pair** désactivé. XRatio ne traite que les annonces des trackers ; les données et connexions pair-à-pair gardent le chemin normal du client.
 5. Appliquez les réglages, puis démarrez ou forcez la mise à jour d’une annonce.
-6. Utilisez **Interception** et **Activity** dans XRatio pour vérifier l’annonce et ses compteurs.
+6. Utilisez **Interception** et **Activité** dans XRatio pour vérifier l’annonce et ses compteurs.
 
-Pour les trackers HTTPS, ouvrez **Platform** dans XRatio et approuvez explicitement la CA d’installation avant d’activer l’interception HTTPS. L’interception HTTP fonctionne sans cette étape.
+Pour les trackers HTTPS, ouvrez **Plateforme** dans XRatio et approuvez explicitement la CA d’installation avant d’activer l’interception HTTPS. L’interception HTTP fonctionne sans cette étape.
 
 Exemple de configuration qBittorrent :
 
@@ -51,16 +53,14 @@ Exemple de configuration qBittorrent :
   <img src="assets/qbittorrent-proxy-settings.png" alt="Configuration du proxy qBittorrent pour XRatio" width="760">
 </p>
 
-XRatio est écrit en C#/.NET 10 et cible Windows en priorité. Le cœur et le proxy restent compilables sur Linux/macOS, sans prétendre à une validation desktop native sur ces systèmes.
-
 ## Interface
 
-- **Overview** : vérifiez si le proxy fonctionne, le nombre de torrents suivis, les simulations actives et l’upload annoncé.
+- **Vue d’ensemble** : vérifiez si le proxy fonctionne, le nombre de torrents suivis, les simulations actives et l’upload annoncé.
 - **Interception** : comparez upload/download et ratio originaux et annoncés, peers, statut et dernière annonce pour chaque torrent.
-- **Simulation** : chargez un `.torrent`, choisissez le tracker et le profil client, réglez vitesses et progression, puis envoyez des annonces contrôlées sans transférer de fichiers.
-- **Activity** : lisez les événements du proxy et des simulations au fil de leur arrivée.
-- **Settings** : changez la langue, le thème, l’icône de notification, les règles de ratio, la journalisation, l’autostart et les mises à jour.
-- **Platform** : gérez le démarrage et la zone de notification, puis approuvez ou retirez la CA locale pour l’interception HTTPS des trackers.
+- **Simulation** : chargez un `.torrent`, choisissez le tracker et le profil client, réglez vitesses et progression, choisissez éventuellement **Minuteur (minutes)** dans **Arrêter**, puis envoyez des annonces contrôlées sans transférer de fichiers.
+- **Activité** : lisez les événements du proxy et des simulations au fil de leur arrivée.
+- **Réglages** : changez la langue, le thème, l’icône de notification, les règles de ratio, la journalisation, l’autostart et les mises à jour.
+- **Plateforme** : gérez le démarrage et la zone de notification, puis approuvez ou retirez la CA locale pour l’interception HTTPS des trackers.
 
 Les simulations configurées sont enregistrées dans `%APPDATA%\XRatio\simulations.json` et restaurées arrêtées. Le mot de passe proxy n’est jamais persisté.
 
@@ -69,17 +69,18 @@ Les simulations configurées sont enregistrées dans `%APPDATA%\XRatio\simulatio
 1. Lancez XRatio; le proxy local écoute par défaut sur `127.0.0.1:3773`.
 2. Dans votre client torrent, configurez un proxy **HTTP** sur cette adresse et activez la résolution des noms d’hôtes via le proxy.
 3. Appliquez le proxy aux communications avec les trackers, pas aux connexions pair-à-pair.
-4. Ajustez les règles dans **Settings** puis utilisez **Interception** et **Activity** pour vérifier les annonces.
+4. Ajustez les règles dans **Réglages** puis utilisez **Interception** et **Activité** pour vérifier les annonces.
 
-L’interception HTTPS reste bloquée tant que vous n’avez pas explicitement approuvé la CA de cette installation dans **Platform** et dans Windows. XRatio échoue en mode fermé si cette confiance manque.
+L’interception HTTPS reste bloquée tant que vous n’avez pas explicitement approuvé la CA de cette installation dans **Plateforme** et dans Windows. XRatio échoue en mode fermé si cette confiance manque.
 
 ## Mode Simulation
 
-1. Ouvrez **Simulation** et cliquez sur **Choose .torrent**.
+1. Ouvrez **Simulation** et cliquez sur **Choisir un torrent**.
 2. Choisissez un tracker HTTP/HTTPS contenu dans le torrent.
 3. Sélectionnez l’un des 17 profils clients et réglez les vitesses, la progression initiale et la variation.
-4. Cliquez sur **Add session** : aucun réseau n’est encore utilisé.
-5. Sélectionnez la session puis cliquez sur **Start** pour envoyer `started`; **Update now** force une annonce, **Stop** envoie `stopped`.
+4. Cliquez sur **Ajouter la session** : aucun réseau n’est encore utilisé.
+5. Dans **Arrêter**, choisissez **Minuteur (minutes)** et indiquez la durée souhaitée, ou laissez **Jamais** pour garder l’arrêt manuel.
+6. Sélectionnez la session puis cliquez sur **Démarrer** pour envoyer `started`; **Mise à jour manuelle** force une annonce, **Arrêter** envoie `stopped`.
 
 Le lecteur `.torrent` est borné à 16 Mio, calcule le SHA-1 sur les octets exacts du dictionnaire `info` et accepte les torrents mono/multifichiers. Le transport conserve la validation TLS du système; il ne reprend pas le contournement de certificat de l’ancien RatioMaster.
 
@@ -113,6 +114,8 @@ Ils utilisent un profil temporaire isolé. Ne les activez pas pendant une sessio
 ```
 
 Le package autonome est créé dans `artifacts\win-x64`, puis archivé dans `artifacts\XRatio-dotnet-win-x64.zip` avec checksums, licence et attributions.
+
+Les releases taguées sont signées Authenticode par la CI lorsqu’un certificat de signature de code est fourni via `XRATIO_CODESIGN_PFX_BASE64` et `XRATIO_CODESIGN_PFX_PASSWORD` ; la CI refuse une release taguée si ces secrets manquent. Pour signer un package local, fournissez un certificat de signature de code approuvé à `scripts\package-win-x64.ps1` avec `-SigningPfxPath` et `-SigningPfxPassword`.
 
 ## Architecture
 

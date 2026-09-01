@@ -57,6 +57,31 @@ internal static class CertificateAuthorityCertificates
         }
     }
 
+    public static bool IsXRatioRoot(X509Certificate2 certificate, string installationId)
+    {
+        ArgumentNullException.ThrowIfNull(certificate);
+        if (string.IsNullOrWhiteSpace(installationId))
+            return false;
+
+        var basicConstraints = certificate.Extensions
+            .OfType<X509BasicConstraintsExtension>()
+            .FirstOrDefault();
+        var keyUsage = certificate.Extensions
+            .OfType<X509KeyUsageExtension>()
+            .FirstOrDefault();
+        return string.Equals(
+                   certificate.GetNameInfo(X509NameType.SimpleName, forIssuer: false),
+                   $"XRatio Local CA {installationId}",
+                   StringComparison.Ordinal) &&
+               string.Equals(certificate.Subject, certificate.Issuer, StringComparison.Ordinal) &&
+               basicConstraints is not null &&
+               basicConstraints.CertificateAuthority &&
+               basicConstraints.HasPathLengthConstraint &&
+               basicConstraints.PathLengthConstraint == 0 &&
+               keyUsage is not null &&
+               keyUsage.KeyUsages.HasFlag(X509KeyUsageFlags.KeyCertSign);
+    }
+
     public static X509Certificate2 CreateServerCertificate(
         X509Certificate2 root,
         string host)

@@ -11,6 +11,12 @@ namespace XRatio.Desktop.Platform;
 internal sealed class WindowsCertificateAuthorityService : ICertificateAuthorityService, IDisposable
 {
     private const string MetadataFileName = "ca.json";
+    private const long MaximumMetadataBytes = 16 * 1024;
+    private static readonly JsonSerializerOptions MetadataJsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        MaxDepth = 8
+    };
     private readonly string _metadataPath;
     private readonly ICertificateTrustStore _certificateStore;
     private readonly SemaphoreSlim _rootGate = new(1, 1);
@@ -54,10 +60,12 @@ internal sealed class WindowsCertificateAuthorityService : ICertificateAuthority
             return false;
         }
 
-        var thumbprint = _root?.Thumbprint ?? metadata?.Thumbprint;
-        if (thumbprint is null)
+        if (metadata is null)
             return false;
-        return _certificateStore.IsTrusted(thumbprint);
+
+        using var trusted = _certificateStore.FindTrusted(metadata.Thumbprint);
+        return trusted is not null &&
+               CertificateAuthorityCertificates.IsXRatioRoot(trusted, metadata.InstallationId);
     }
 
     public async Task RequestTrustAsync(CancellationToken cancellationToken = default)
@@ -87,10 +95,14 @@ internal sealed class WindowsCertificateAuthorityService : ICertificateAuthority
     public async Task RemoveTrustAsync(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var thumbprint = _root?.Thumbprint ??
-                         (await ReadMetadataAsync(cancellationToken))?.Thumbprint;
+        var metadata = await ReadMetadataAsync(cancellationToken);
+        var thumbprint = _root?.Thumbprint ?? metadata?.Thumbprint;
         if (thumbprint is null)
             return;
+
+        if (metadata is not null)
+            ValidateStoredRoots(metadata);
+
         _certificateStore.RemoveTrusted(thumbprint);
         _certificateStore.RemovePrivate(thumbprint);
 
@@ -155,7 +167,27 @@ internal sealed class WindowsCertificateAuthorityService : ICertificateAuthority
             {
                 var existing = _certificateStore.FindPrivate(metadata.Thumbprint);
                 if (existing is not null)
+                {
+                    if (!existing.HasPrivateKey ||
+                        !CertificateAuthorityCertificates.IsXRatioRoot(existing, metadata.InstallationId))
+                    {
+                        existing.Dispose();
+                        throw new InvalidDataException(
+                            "The certificate matching XRatio CA metadata is not an XRatio installation root.");
+                    }
+
                     return _root = existing;
+                }
+
+                using (var trusted = _certificateStore.FindTrusted(metadata.Thumbprint))
+                {
+                    if (trusted is not null &&
+                        !CertificateAuthorityCertificates.IsXRatioRoot(trusted, metadata.InstallationId))
+                    {
+                        throw new InvalidDataException(
+                            "The trusted certificate matching XRatio CA metadata is not an XRatio installation root.");
+                    }
+                }
 
                 // The private key may have been removed outside XRatio while
                 // the installation metadata and public Root entry remained. Remove
@@ -222,13 +254,19 @@ internal sealed class WindowsCertificateAuthorityService : ICertificateAuthority
         if (!File.Exists(_metadataPath))
             return null;
 
+        var info = new FileInfo(_metadataPath);
+        if (info.Length is <= 0 or > MaximumMetadataBytes)
+            throw new InvalidDataException(
+                "The XRatio CA metadata is too large; refusing to generate a replacement CA.");
+
         await using var stream = File.OpenRead(_metadataPath);
         CertificateMetadata? metadata;
         try
         {
             metadata = await JsonSerializer.DeserializeAsync<CertificateMetadata>(
                 stream,
-                cancellationToken: cancellationToken);
+                MetadataJsonOptions,
+                cancellationToken);
         }
         catch (JsonException exception)
         {
@@ -261,7 +299,11 @@ internal sealed class WindowsCertificateAuthorityService : ICertificateAuthority
             await using (var stream = new FileStream(
                              temporary, FileMode.Create, FileAccess.Write, FileShare.None, 4096, FileOptions.WriteThrough))
             {
-                await JsonSerializer.SerializeAsync(stream, metadata, cancellationToken: cancellationToken);
+                await JsonSerializer.SerializeAsync(
+                    stream,
+                    metadata,
+                    MetadataJsonOptions,
+                    cancellationToken);
                 await stream.FlushAsync(cancellationToken);
             }
             File.Move(temporary, _metadataPath, overwrite: true);
@@ -287,6 +329,26 @@ internal sealed class WindowsCertificateAuthorityService : ICertificateAuthority
             if (item.IsValueCreated && item.Value.IsCompletedSuccessfully)
                 item.Value.Result.Dispose();
         _hostCertificates.Clear();
+    }
+
+    private void ValidateStoredRoots(CertificateMetadata metadata)
+    {
+        using var privateRoot = _certificateStore.FindPrivate(metadata.Thumbprint);
+        if (privateRoot is not null &&
+            (!privateRoot.HasPrivateKey ||
+             !CertificateAuthorityCertificates.IsXRatioRoot(privateRoot, metadata.InstallationId)))
+        {
+            throw new InvalidDataException(
+                "The private certificate matching XRatio CA metadata is not an XRatio installation root.");
+        }
+
+        using var trustedRoot = _certificateStore.FindTrusted(metadata.Thumbprint);
+        if (trustedRoot is not null &&
+            !CertificateAuthorityCertificates.IsXRatioRoot(trustedRoot, metadata.InstallationId))
+        {
+            throw new InvalidDataException(
+                "The trusted certificate matching XRatio CA metadata is not an XRatio installation root.");
+        }
     }
 
     private sealed record CertificateMetadata(string InstallationId, string Thumbprint);

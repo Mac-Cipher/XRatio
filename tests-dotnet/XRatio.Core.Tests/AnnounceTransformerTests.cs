@@ -17,7 +17,31 @@ public sealed class AnnounceTransformerTests
     }
 
     [Fact]
-    public void Transform_PortsFreeLeechAndPretendSeedBehavior()
+    public void Transform_PortsFreeLeechAndPretendSeedForCompletedTorrent()
+    {
+        var transformer = new AnnounceTransformer(new FixedRandomSource());
+        var settings = new XRatioSettings
+        {
+            ReportDownloadAsZero = true,
+            PretendToSeed = true
+        };
+
+        transformer.Transform(
+            new Uri("http://tracker.test/announce?info_hash=abc&downloaded=50&uploaded=20&left=700&event=started"),
+            settings);
+        var result = transformer.Transform(
+            new Uri("http://tracker.test/announce?info_hash=abc&downloaded=50&uploaded=20&left=0&event=completed"),
+            settings);
+
+        Assert.Equal(AnnounceDisposition.Rewritten, result.Disposition);
+        Assert.Contains("downloaded=0", result.Target!.Query, StringComparison.Ordinal);
+        Assert.Contains("uploaded=20", result.Target.Query, StringComparison.Ordinal);
+        Assert.Contains("left=0", result.Target.Query, StringComparison.Ordinal);
+        Assert.DoesNotContain("event=", result.Target.Query, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Transform_PretendSeedDoesNotHideRemainingBytesForActiveDownload()
     {
         var transformer = new AnnounceTransformer(new FixedRandomSource());
         var settings = new XRatioSettings
@@ -27,14 +51,29 @@ public sealed class AnnounceTransformerTests
         };
 
         var result = transformer.Transform(
-            new Uri("http://tracker.test/announce?info_hash=abc&downloaded=50&uploaded=20&left=700&event=completed"),
+            new Uri("http://tracker.test/announce?info_hash=active&downloaded=50&uploaded=20&left=700"),
             settings);
 
         Assert.Equal(AnnounceDisposition.Rewritten, result.Disposition);
         Assert.Contains("downloaded=0", result.Target!.Query, StringComparison.Ordinal);
         Assert.Contains("uploaded=20", result.Target.Query, StringComparison.Ordinal);
-        Assert.Contains("left=0", result.Target.Query, StringComparison.Ordinal);
-        Assert.DoesNotContain("event=", result.Target.Query, StringComparison.Ordinal);
+        Assert.Contains("left=700", result.Target.Query, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Transform_NormalizesBinaryUrlInfoHashForTorrentNameLookup()
+    {
+        var bytes = Enumerable.Range(0, 20).Select(value => (byte)value).ToArray();
+        var encoded = string.Concat(bytes.Select(value => $"%{value:X2}"));
+        var expected = Convert.ToHexString(bytes);
+        var transformer = new AnnounceTransformer(new FixedRandomSource());
+
+        var result = transformer.Transform(
+            new Uri($"http://tracker.test/announce?info_hash={encoded}&downloaded=1&uploaded=2&left=3"),
+            new XRatioSettings());
+
+        Assert.Equal(expected, result.InfoHash);
+        Assert.Equal(expected, Assert.Single(transformer.GetSnapshots()).InfoHash);
     }
 
     [Fact]
@@ -96,6 +135,35 @@ public sealed class AnnounceTransformerTests
 
         Assert.Contains("downloaded=100", paused.Target!.Query, StringComparison.Ordinal);
         Assert.Contains("uploaded=200", paused.Target.Query, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Transform_SaturatesReportedUploadAtCounterLimit()
+    {
+        var transformer = new AnnounceTransformer(new FixedRandomSource());
+        transformer.Restore(new[]
+        {
+            new PersistedTorrentState(
+                "a",
+                "tracker.test",
+                ActualFirstLeft: 0,
+                ActualDownloaded: 0,
+                ActualUploaded: 0,
+                ActualLeft: 1,
+                ReportedDownloaded: 0,
+                ReportedUploaded: long.MaxValue,
+                ReportedLeft: 1,
+                CompletePeers: 0,
+                IncompletePeers: 0,
+                LastAnnounce: DateTimeOffset.UnixEpoch)
+        });
+
+        var result = transformer.Transform(
+            new Uri("http://tracker.test/announce?info_hash=a&downloaded=1&uploaded=1&left=1&event=started"),
+            new XRatioSettings());
+
+        Assert.Equal(AnnounceDisposition.Rewritten, result.Disposition);
+        Assert.Contains($"uploaded={long.MaxValue}", result.Target!.Query, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -19,7 +19,11 @@ public sealed class App : Application
     private WindowIcon? _colorTrayIcon;
     private WindowIcon? _monochromeTrayIcon;
     private WindowIcon? _stopTrayIcon;
+    private WindowIcon? _stopTrayIconWithUpdate;
     private WindowIcon? _pauseTrayIcon;
+    private WindowIcon? _pauseTrayIconWithUpdate;
+    private WindowIcon? _colorTrayIconWithUpdate;
+    private WindowIcon? _monochromeTrayIconWithUpdate;
 
     public override void Initialize()
     {
@@ -82,40 +86,82 @@ public sealed class App : Application
             Icon = GetTrayIcon(
                 window.IsProxyRunning,
                 window.IsProxyPaused,
-                window.UseMonochromeTrayIcon),
-            ToolTipText = FormatTrayToolTip(window.IsProxyRunning, window.IsProxyPaused),
+                window.UseMonochromeTrayIcon,
+                window.IsUpdateAvailable),
+            ToolTipText = FormatTrayToolTip(
+                window.IsProxyRunning,
+                window.IsProxyPaused,
+                window.CurrentLanguage),
             Menu = BuildTrayMenu(window),
             IsVisible = window.IsTrayIconEnabled
         };
         window.RuntimeStateChanged += (isRunning, isPaused) =>
         {
-            tray.ToolTipText = FormatTrayToolTip(isRunning, isPaused);
-            tray.Icon = GetTrayIcon(isRunning, isPaused, window.UseMonochromeTrayIcon);
+            tray.ToolTipText = FormatTrayToolTip(isRunning, isPaused, window.CurrentLanguage);
+            tray.Icon = GetTrayIcon(
+                isRunning,
+                isPaused,
+                window.UseMonochromeTrayIcon,
+                window.IsUpdateAvailable);
             tray.IsVisible = window.IsTrayIconEnabled;
+        };
+        window.UpdateAvailabilityChanged += updateAvailable =>
+        {
+            tray.Icon = GetTrayIcon(
+                window.IsProxyRunning,
+                window.IsProxyPaused,
+                window.UseMonochromeTrayIcon,
+                updateAvailable);
+            tray.IsVisible = window.IsTrayIconEnabled;
+        };
+        window.LanguageChanged += language =>
+        {
+            tray.ToolTipText = FormatTrayToolTip(
+                window.IsProxyRunning,
+                window.IsProxyPaused,
+                language);
         };
         tray.Clicked += (_, _) => window.ShowFromTray();
         return tray;
     }
 
-    private WindowIcon GetTrayIcon(bool isRunning, bool isPaused, bool monochrome)
+    private WindowIcon GetTrayIcon(
+        bool isRunning,
+        bool isPaused,
+        bool monochrome,
+        bool updateAvailable)
     {
         // Monochrome is an explicit user override: it must not leak the
-        // red/orange state colors into the notification area.
+        // red/orange state colors into the notification area. The blue update
+        // badge remains visible because it is a separate actionable signal.
         if (monochrome)
-            return _monochromeTrayIcon ??= TrayIconRenderer.CreateMonochromeIcon();
+            return updateAvailable
+                ? _monochromeTrayIconWithUpdate ??= TrayIconRenderer.CreateMonochromeIcon(updateAvailable: true)
+                : _monochromeTrayIcon ??= TrayIconRenderer.CreateMonochromeIcon();
         if (!isRunning)
-            return _stopTrayIcon ??= TrayIconRenderer.CreateStopIcon();
+            return updateAvailable
+                ? _stopTrayIconWithUpdate ??= TrayIconRenderer.CreateStopIcon(updateAvailable: true)
+                : _stopTrayIcon ??= TrayIconRenderer.CreateStopIcon();
         if (isPaused)
-            return _pauseTrayIcon ??= TrayIconRenderer.CreatePauseIcon();
-        return _colorTrayIcon ??= CreateAppIcon();
+            return updateAvailable
+                ? _pauseTrayIconWithUpdate ??= TrayIconRenderer.CreatePauseIcon(updateAvailable: true)
+                : _pauseTrayIcon ??= TrayIconRenderer.CreatePauseIcon();
+        return updateAvailable
+            ? _colorTrayIconWithUpdate ??= TrayIconRenderer.CreateColorIcon(updateAvailable: true)
+            : _colorTrayIcon ??= CreateAppIcon();
     }
 
-    internal static string FormatTrayToolTip(bool isRunning, bool isPaused) =>
-        !isRunning
-            ? "XRatio — OFF"
-            : isPaused
-                ? "XRatio — ON (paused)"
-                : "XRatio — ON";
+    internal static string FormatTrayToolTip(
+        bool isRunning,
+        bool isPaused,
+        string? language = null) =>
+        UiText.Translate(
+            !isRunning
+                ? "XRatio — OFF"
+                : isPaused
+                    ? "XRatio — ON (paused)"
+                    : "XRatio — ON",
+            language ?? UiText.English);
 
     internal static WindowIcon CreateAppIcon()
     {
@@ -126,12 +172,22 @@ public sealed class App : Application
     internal static NativeMenu BuildTrayMenu(MainWindow window)
     {
         ArgumentNullException.ThrowIfNull(window);
-        var show = new NativeMenuItem { Header = "Show XRatio" };
+        var show = new NativeMenuItem();
         show.Click += (_, _) => window.ShowFromTray();
-        var pause = new NativeMenuItem { Header = "Pause / resume rewriting" };
+        var pause = new NativeMenuItem();
         pause.Click += (_, _) => window.TogglePause();
-        var exit = new NativeMenuItem { Header = "Exit" };
+        var exit = new NativeMenuItem();
         exit.Click += async (_, _) => await window.PrepareForExitAsync();
+
+        void ApplyLanguage(string language)
+        {
+            show.Header = UiText.Translate("Show XRatio", language);
+            pause.Header = UiText.Translate("Pause / resume rewriting", language);
+            exit.Header = UiText.Translate("Exit", language);
+        }
+
+        ApplyLanguage(window.CurrentLanguage);
+        window.LanguageChanged += ApplyLanguage;
         return new NativeMenu
         {
             Items = { show, pause, new NativeMenuItemSeparator(), exit }

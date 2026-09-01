@@ -23,15 +23,15 @@ public sealed class SimulationCounters
         if (elapsed < TimeSpan.Zero || uploadBytesPerSecond < 0 || downloadBytesPerSecond < 0)
             throw new ArgumentOutOfRangeException(nameof(elapsed));
 
-        Uploaded = checked(Uploaded + (long)Math.Floor(uploadBytesPerSecond * elapsed.TotalSeconds));
+        var elapsedSeconds = elapsed.TotalSeconds;
+        Uploaded = checked(Uploaded + (long)Math.Floor(uploadBytesPerSecond * elapsedSeconds));
         var wasIncomplete = Left > 0;
         if (wasIncomplete)
         {
-            var delta = (long)Math.Floor(downloadBytesPerSecond * elapsed.TotalSeconds);
+            var delta = (long)Math.Floor(downloadBytesPerSecond * elapsedSeconds);
             Downloaded = Math.Min(TotalSize, checked(Downloaded + delta));
             Left = TotalSize - Downloaded;
         }
         return wasIncomplete && Left == 0;
     }
 }
-

@@ -24,5 +24,16 @@ public sealed class TrackerResponseParserTests
 
         Assert.Equal("try later", response.FailureReason);
     }
+
+    [Fact]
+    public void Parse_IgnoresCountersOutsideInt32Range()
+    {
+        var response = TrackerResponseParser.Parse(
+            Encoding.ASCII.GetBytes("d8:completei999999999999999999999e10:incompletei1e8:intervali60ee"));
+
+        Assert.Null(response.Complete);
+        Assert.Equal(1, response.Incomplete);
+        Assert.Equal(60, response.Interval);
+    }
 }
 

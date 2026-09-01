@@ -12,6 +12,12 @@ internal sealed class WindowsCertificateStore : IWindowsCertificateStore
         return Find(store, thumbprint).Count > 0;
     }
 
+    public X509Certificate2? FindTrusted(string thumbprint)
+    {
+        using var store = Open(StoreName.Root, OpenFlags.ReadOnly);
+        return Find(store, thumbprint).OfType<X509Certificate2>().FirstOrDefault();
+    }
+
     public X509Certificate2? FindPrivate(string thumbprint)
     {
         using var store = Open(StoreName.My, OpenFlags.ReadOnly);

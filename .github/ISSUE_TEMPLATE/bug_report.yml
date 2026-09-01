@@ -1,0 +1,69 @@
+name: Bug report
+description: Report a reproducible problem in XRatio.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a problem. Please include enough detail for us to reproduce it.
+  - type: checkboxes
+    id: searched
+    attributes:
+      label: Before you start
+      options:
+        - label: I have searched the existing issues for a duplicate.
+          required: true
+  - type: input
+    id: version
+    attributes:
+      label: XRatio version
+      description: Which version is affected? You can find it in Settings > Updates.
+      placeholder: e.g. v1.0.0
+    validations:
+      required: true
+  - type: dropdown
+    id: operating-system
+    attributes:
+      label: Operating system
+      options:
+        - Windows 11
+        - Windows 10
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Tell us exactly what you clicked or entered, in order.
+      placeholder: |
+        1. Open ...
+        2. Select ...
+        3. Click ...
+        4. See ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect, and what happened instead?
+      placeholder: I expected ... but XRatio ...
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs or screenshots
+      description: Remove passwords, tokens, tracker credentials, and other private data before posting.
+      render: text
+    validations:
+      required: false
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Add anything else that may help us understand the problem.
+    validations:
+      required: false

@@ -37,7 +37,7 @@ public sealed class HttpProxyServerTests
         await client.ConnectAsync(IPAddress.Loopback, proxyPort, timeout.Token);
         await using var stream = client.GetStream();
         var absoluteTarget =
-            $"http://127.0.0.1:{trackerPort}/announce?info_hash=abc&passkey=secret&downloaded=50&uploaded=20&left=700";
+            $"http://127.0.0.1:{trackerPort}/announce?info_hash=abc&passkey=secret&downloaded=50&uploaded=20&left=0";
         var request = Encoding.ASCII.GetBytes(
             $"GET {absoluteTarget} HTTP/1.1\r\nHost: 127.0.0.1:{trackerPort}\r\nConnection: close\r\n\r\n");
         await stream.WriteAsync(request, timeout.Token);

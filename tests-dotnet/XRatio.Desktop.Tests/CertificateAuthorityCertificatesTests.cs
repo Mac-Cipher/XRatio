@@ -35,6 +35,17 @@ public sealed class CertificateAuthorityCertificatesTests
         AssertValidChain(leaf, root);
     }
 
+    [Fact]
+    public void RootIdentity_RequiresTheExpectedInstallationAndCaExtensions()
+    {
+        using var root = CertificateAuthorityCertificates.CreateRoot("identity-test");
+        using var leaf = CertificateAuthorityCertificates.CreateServerCertificate(root, "tracker.test");
+
+        Assert.True(CertificateAuthorityCertificates.IsXRatioRoot(root, "identity-test"));
+        Assert.False(CertificateAuthorityCertificates.IsXRatioRoot(root, "other-installation"));
+        Assert.False(CertificateAuthorityCertificates.IsXRatioRoot(leaf, "identity-test"));
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("not a host")]

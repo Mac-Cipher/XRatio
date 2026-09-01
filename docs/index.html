@@ -25,7 +25,7 @@
           </span>
         </a>
         <nav class="desktop-nav" aria-label="Navigation principale">
-          <a href="#surfaces" data-fr="Surfaces" data-en="Surface">Surfaces</a>
+          <a href="#surfaces" data-fr="Surfaces" data-en="Surfaces">Surfaces</a>
           <a href="#interface" data-fr="Interface" data-en="Interface">Interface</a>
           <a href="#principes" data-fr="Principes" data-en="Principles">Principes</a>
           <a href="#download" data-fr="Télécharger" data-en="Download">Télécharger</a>
@@ -33,7 +33,7 @@
         <div class="header-actions">
           <div class="language-switch" role="group" aria-label="Choisir la langue">
             <button type="button" class="language-button" data-language="fr" aria-label="Français" aria-pressed="false"><span class="language-flag flag-fr" aria-hidden="true"></span><span>FR</span></button>
-            <button type="button" class="language-button is-active" data-language="en" aria-label="English" aria-pressed="true"><span class="language-flag flag-gb" aria-hidden="true">🇬🇧</span><span>EN</span></button>
+            <button type="button" class="language-button is-active" data-language="en" aria-label="English" aria-pressed="true"><span class="language-flag flag-gb" aria-hidden="true"></span><span>EN</span></button>
           </div>
           <a class="header-cta" href="https://github.com/Mac-Cipher/XRatio/releases/latest" data-fr="Obtenir XRatio" data-en="Get XRatio">Obtenir XRatio</a>
         </div>
@@ -56,7 +56,7 @@
             </div>
           </div>
 
-          <div class="hero-visual" aria-label="Aperçu de l’application XRatio">
+          <div class="hero-visual" role="img" aria-label="Aperçu de l’application XRatio">
             <div class="visual-glow"></div>
             <div class="app-window">
               <div class="window-bar">
@@ -101,7 +101,7 @@
 
         <section class="metrics" aria-label="Repères XRatio">
           <div><strong>06</strong><span data-fr="surfaces conçues pour l’action" data-en="surfaces built for action">surfaces conçues pour l’action</span></div>
-          <div><strong>03</strong><span data-fr="thèmes, une hiérarchie" data-en="themes, one hierarchy">thèmes, une hiérarchie</span></div>
+          <div><strong>04</strong><span data-fr="thèmes, une hiérarchie" data-en="themes, one hierarchy">thèmes, une hiérarchie</span></div>
           <div><strong>02</strong><span data-fr="langues, la même expérience" data-en="languages, the same experience">langues, la même expérience</span></div>
           <div><strong>01</strong><span data-fr="plan de contrôle local" data-en="local control plane">plan de contrôle local</span></div>
         </section>
@@ -118,21 +118,21 @@
               <div class="surface-icon icon-signal"></div>
               <h3 data-fr="Interception" data-en="Interception">Interception</h3>
               <p data-fr="Voyez les annonces réelles et réécrites, l’état par info-hash et les compteurs qui évoluent." data-en="See real and rewritten announces, per-info-hash status, and the counters as they change.">Voyez les annonces réelles et réécrites, l’état par info-hash et les compteurs qui évoluent.</p>
-              <span class="surface-link" data-fr="Pour les clients torrent réels" data-en="For real torrent clients">Pour les clients torrent réels <span aria-hidden="true">↗</span></span>
+              <a class="surface-link" href="#interface" data-fr="Pour les clients torrent réels" data-en="For real torrent clients">Pour les clients torrent réels <span aria-hidden="true">↗</span></a>
             </article>
             <article class="surface-card">
               <div class="surface-number">02</div>
               <div class="surface-icon icon-play"></div>
               <h3 data-fr="Simulation" data-en="Simulation">Simulation</h3>
               <p data-fr="Importez un .torrent, choisissez un profil, définissez les vitesses et démarrez quand vous êtes prêt." data-en="Load a .torrent, choose a profile, set the speeds, and start only when you are ready.">Importez un .torrent, choisissez un profil, définissez les vitesses et démarrez quand vous êtes prêt.</p>
-              <span class="surface-link" data-fr="Indépendante et contrôlée" data-en="Independent and controlled">Indépendante et contrôlée <span aria-hidden="true">↗</span></span>
+              <a class="surface-link" href="#download" data-fr="Indépendante et contrôlée" data-en="Independent and controlled">Indépendante et contrôlée <span aria-hidden="true">↗</span></a>
             </article>
             <article class="surface-card">
               <div class="surface-number">03</div>
               <div class="surface-icon icon-eye"></div>
               <h3 data-fr="Activité" data-en="Activity">Activité</h3>
               <p data-fr="Suivez ce que fait le proxy et ce que répond le tracker sans ouvrir une console séparée." data-en="Follow what the proxy does and what the tracker returns without opening another console.">Suivez ce que fait le proxy et ce que répond le tracker sans ouvrir une console séparée.</p>
-              <span class="surface-link" data-fr="Lisible au premier regard" data-en="Readable at a glance">Lisible au premier regard <span aria-hidden="true">↗</span></span>
+              <a class="surface-link" href="#principes" data-fr="Lisible au premier regard" data-en="Readable at a glance">Lisible au premier regard <span aria-hidden="true">↗</span></a>
             </article>
           </div>
         </section>
@@ -140,7 +140,7 @@
         <section class="interface-section" id="interface">
           <div class="interface-image-wrap">
             <div class="image-caption"><span class="status-dot"></span><span data-fr="Thème sombre doux · Vue d’ensemble" data-en="Dim theme · Overview">Thème sombre doux · Vue d’ensemble</span></div>
-            <img src="screenshots/overview-dim-theme.png" alt="Vue d’ensemble XRatio dans le thème sombre doux" loading="lazy">
+            <img src="screenshots/overview-dim-theme.png" alt="Vue d’ensemble XRatio dans le thème sombre doux" data-fr-alt="Vue d’ensemble XRatio dans le thème sombre doux" data-en-alt="XRatio overview in the dim theme" loading="lazy">
           </div>
           <div class="interface-copy">
             <p class="eyebrow" data-fr="UNE INTERFACE QUI S’EFFACE" data-en="AN INTERFACE THAT STEPS BACK">UNE INTERFACE QUI S’EFFACE</p>
@@ -169,7 +169,7 @@
         <section class="download-section" id="download">
           <div class="download-inner">
             <div>
-              <p class="eyebrow"><span class="status-dot"></span><span data-fr="VERSION 0.1.0 DISPONIBLE" data-en="VERSION 0.1.0 AVAILABLE">VERSION 0.1.0 DISPONIBLE</span></p>
+              <p class="eyebrow"><span class="status-dot"></span><span data-fr="VERSION 1.0.0 DISPONIBLE" data-en="VERSION 1.0.0 AVAILABLE">VERSION 1.0.0 DISPONIBLE</span></p>
               <h2><span data-fr="Prêt à reprendre" data-en="Ready to take">Prêt à reprendre</span> <span data-fr="le contrôle ?" data-en="control?">le contrôle ?</span></h2>
               <p data-fr="Téléchargez le package Windows autonome ou parcourez le code source sur GitHub." data-en="Download the self-contained Windows package or browse the source on GitHub.">Téléchargez le package Windows autonome ou parcourez le code source sur GitHub.</p>
             </div>
@@ -184,7 +184,7 @@
       <footer class="site-footer">
         <div class="footer-brand"><span class="brand-mark">X</span><span><strong>XRatio</strong><small data-fr="Contrôle ratio local" data-en="Local ratio control">Contrôle ratio local</small></span></div>
         <p data-fr="Construit pour rester lisible." data-en="Built to stay readable.">Construit pour rester lisible.</p>
-        <div class="footer-links"><a href="https://github.com/Mac-Cipher/XRatio" data-fr="GitHub" data-en="GitHub">GitHub</a><a href="README.fr.md" data-fr="Documentation" data-en="Documentation">Documentation</a><span>GPL-3.0</span></div>
+        <div class="footer-links"><a href="https://github.com/Mac-Cipher/XRatio" data-fr="GitHub" data-en="GitHub">GitHub</a><a href="https://github.com/Mac-Cipher/XRatio/blob/master/README.md" data-fr-href="https://github.com/Mac-Cipher/XRatio/blob/master/README.fr.md" data-en-href="https://github.com/Mac-Cipher/XRatio/blob/master/README.md" data-fr="Documentation" data-en="Documentation">Documentation</a><span>GPL-3.0</span></div>
       </footer>
     </div>
     <script src="script.js" defer></script>

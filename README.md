@@ -59,7 +59,7 @@ Example qBittorrent configuration:
 | --- | --- |
 | **Overview** | See whether the proxy is running, how many torrents are tracked, how many simulations are active, and how much upload is reported. |
 | **Interception** | Compare original and reported upload/download, ratio, peers, status, and last announce for each torrent. |
-| **Simulation** | Load a `.torrent`, choose a tracker and client profile, set speeds and progress, then send controlled announces without transferring files. |
+| **Simulation** | Load a `.torrent`, choose a tracker and client profile, set speeds and progress, optionally choose **Timer (minutes)** under **Stop**, then send controlled announces without transferring files. |
 | **Activity** | Read proxy and simulation events as they happen. |
 | **Settings** | Change language, theme, tray icon, ratio rules, logging, autostart, and update checks. |
 | **Platform** | Enable startup/tray behavior and trust or remove the local CA for HTTPS tracker interception. |
@@ -74,6 +74,8 @@ Example qBittorrent configuration:
 ## Download and run
 
 End users should use the packaged Windows build from [Releases](https://github.com/Mac-Cipher/XRatio/releases). The self-contained package does not require a separate .NET installation.
+
+On Windows, XRatio checks the official release at startup. When a newer packaged build is available, it downloads `XRatio.exe` and its published SHA-256, verifies both, closes XRatio, replaces the running executable, removes the previous executable, and starts the new version. Settings in `%APPDATA%\XRatio` are kept. If the current process is a development launch, the automatic replacement is disabled and the release page remains available.
 
 When running from source, the desktop app starts with:
 
@@ -99,6 +101,8 @@ Create and smoke-test the self-contained Windows package:
 .\scripts\package-win-x64.ps1
 .\scripts\smoke-win-x64.ps1
 ```
+
+Tagged Windows releases are Authenticode-signed in CI when the repository provides the `XRATIO_CODESIGN_PFX_BASE64` and `XRATIO_CODESIGN_PFX_PASSWORD` secrets; the release job refuses a tagged build without them. For a local package, pass an approved code-signing certificate to `scripts\package-win-x64.ps1` with `-SigningPfxPath` and `-SigningPfxPassword`.
 
 Installed-qBittorrent smoke tests are opt-in. Enable them only when an isolated qBittorrent launch is acceptable:
 

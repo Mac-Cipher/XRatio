@@ -6,6 +6,10 @@ namespace XRatio.Core.Announcements;
 public sealed class AnnounceTransformer
 {
     private const int MaximumInfoHashCharacters = 256;
+    private static readonly IReadOnlyDictionary<string, string> NoUpdates =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    private static readonly IReadOnlySet<string> CompletedEventRemoval =
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "event" };
     private readonly object _gate = new();
     private readonly IRandomSource _random;
     private readonly Dictionary<string, TorrentState> _torrents = new(StringComparer.Ordinal);
@@ -32,7 +36,7 @@ public sealed class AnnounceTransformer
                 : new(AnnounceDisposition.Forwarded, target, "Forwarding non-tracker traffic.");
         }
 
-        var hash = query.GetLast("info_hash") ?? string.Empty;
+        var hash = InfoHashCodec.Normalize(query.GetLast("info_hash") ?? string.Empty);
         if (hash.Length is 0 or > MaximumInfoHashCharacters)
             return new(AnnounceDisposition.RejectedInvalid, null, "Invalid info_hash.");
         var eventName = query.GetLast("event") ?? string.Empty;
@@ -49,10 +53,10 @@ public sealed class AnnounceTransformer
             state.Tracker = target.IsDefaultPort ? target.Host : $"{target.Host}:{target.Port}";
             var actualDownDifference = state.ActualLast is null
                 ? downloaded
-                : Math.Max(0, downloaded - state.ActualLast.Downloaded);
+                : Math.Max(0, downloaded - state.ActualLast.Value.Downloaded);
             var actualUpDifference = state.ActualLast is null
                 ? uploaded
-                : Math.Max(0, uploaded - state.ActualLast.Uploaded);
+                : Math.Max(0, uploaded - state.ActualLast.Value.Uploaded);
             if (eventName.Equals("started", StringComparison.Ordinal) && !restoredState)
             {
                 actualDownDifference = downloaded;
@@ -62,8 +66,12 @@ public sealed class AnnounceTransformer
             state.ActualFirst ??= new Counters(downloaded, uploaded, left);
             if (state.ActualLast is not null && !eventName.Equals("started", StringComparison.Ordinal))
             {
-                state.ActualDownloadedTotal += actualDownDifference;
-                state.ActualUploadedTotal += actualUpDifference;
+                state.ActualDownloadedTotal = SaturatingAdd(
+                    state.ActualDownloadedTotal,
+                    actualDownDifference);
+                state.ActualUploadedTotal = SaturatingAdd(
+                    state.ActualUploadedTotal,
+                    actualUpDifference);
             }
             state.ActualLast = new Counters(downloaded, uploaded, left);
 
@@ -89,16 +97,21 @@ public sealed class AnnounceTransformer
                 if (settings.ReportDownloadAsZero)
                 {
                     downloaded = 0;
-                    left = state.ActualFirst.Left;
+                    left = state.ActualFirst!.Value.Left;
                     if (eventName.Equals("completed", StringComparison.Ordinal))
                     {
                         rewrittenResource = QueryStringEditor.Parse(rewrittenResource).Rewrite(
-                            new Dictionary<string, string>(),
-                            new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "event" });
+                            NoUpdates,
+                            CompletedEventRemoval);
                     }
                 }
 
-                if (settings.PretendToSeed)
+                // Only advertise a torrent as seeded when qBittorrent's last
+                // real announce says it has no bytes left. Applying left=0 to
+                // an active download hides the remaining work from the
+                // tracker, which can make it return no peers and stall the
+                // download.
+                if (settings.PretendToSeed && state.ActualLast is { Left: 0 })
                     left = 0;
 
                 if (state.IncompletePeers >= settings.MinimumPeers)
@@ -109,7 +122,7 @@ public sealed class AnnounceTransformer
                     var upRatio = BetweenLegacyBounds(
                         settings.UploadPerUploadMaximum,
                         settings.UploadPerUploadMinimum);
-                    var calculated = previousUpload + actualUpDifference +
+                    var calculated = (double)previousUpload + actualUpDifference +
                                      downRatio * actualDownDifference +
                                      upRatio * actualUpDifference;
                     if (_random.NextDouble() * 100 < settings.BoostChancePercent)
@@ -117,11 +130,11 @@ public sealed class AnnounceTransformer
                         calculated += settings.BoostKiBPerSecond * 1024 *
                                       elapsedSeconds * _random.NextDouble();
                     }
-                    uploaded = checked((long)Math.Round(calculated, MidpointRounding.ToEven));
+                    uploaded = RoundCounter(calculated);
                 }
                 else
                 {
-                    uploaded = checked(previousUpload + actualUpDifference);
+                    uploaded = SaturatingAdd(previousUpload, actualUpDifference);
                 }
             }
 
@@ -134,24 +147,25 @@ public sealed class AnnounceTransformer
                     hash);
             }
 
-            var updates = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["downloaded"] = downloaded.ToString(CultureInfo.InvariantCulture),
-                ["uploaded"] = uploaded.ToString(CultureInfo.InvariantCulture),
-                ["left"] = left.ToString(CultureInfo.InvariantCulture)
-            };
-            rewrittenResource = QueryStringEditor.Parse(rewrittenResource).Rewrite(updates);
+            rewrittenResource = QueryStringEditor.Parse(rewrittenResource).RewriteCounters(
+                downloaded.ToString(CultureInfo.InvariantCulture),
+                uploaded.ToString(CultureInfo.InvariantCulture),
+                left.ToString(CultureInfo.InvariantCulture));
             var builder = new UriBuilder(target)
             {
-                Path = rewrittenResource.Split('?', '#')[0],
+                Path = ExtractPath(rewrittenResource),
                 Query = ExtractQuery(rewrittenResource),
                 Fragment = ExtractFragment(rewrittenResource)
             };
 
             if (state.ReportedLast is not null && !eventName.Equals("started", StringComparison.Ordinal))
             {
-                state.ReportedDownloadedTotal += Math.Max(0, downloaded - state.ReportedLast.Downloaded);
-                state.ReportedUploadedTotal += Math.Max(0, uploaded - state.ReportedLast.Uploaded);
+                state.ReportedDownloadedTotal = SaturatingAdd(
+                    state.ReportedDownloadedTotal,
+                    Math.Max(0, downloaded - state.ReportedLast.Value.Downloaded));
+                state.ReportedUploadedTotal = SaturatingAdd(
+                    state.ReportedUploadedTotal,
+                    Math.Max(0, uploaded - state.ReportedLast.Value.Uploaded));
             }
             state.ReportedLast = new Counters(downloaded, uploaded, left);
             state.ReportedAt = timestamp;
@@ -162,6 +176,7 @@ public sealed class AnnounceTransformer
 
     public void ObserveTrackerResponse(string infoHash, TrackerResponse response)
     {
+        infoHash = InfoHashCodec.Normalize(infoHash);
         lock (_gate)
         {
             var state = GetState(infoHash);
@@ -175,6 +190,7 @@ public sealed class AnnounceTransformer
     public bool ResetTorrent(string infoHash)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(infoHash);
+        infoHash = InfoHashCodec.Normalize(infoHash);
         lock (_gate)
             return _torrents.Remove(infoHash);
     }
@@ -184,7 +200,15 @@ public sealed class AnnounceTransformer
         get
         {
             lock (_gate)
-                return _torrents.Values.Any(state => state.ActualLast?.Left > 0);
+            {
+                foreach (var state in _torrents.Values)
+                {
+                    if (state.ActualLast is { Left: > 0 })
+                        return true;
+                }
+
+                return false;
+            }
         }
     }
 
@@ -193,8 +217,17 @@ public sealed class AnnounceTransformer
         get
         {
             lock (_gate)
-                return _torrents.Count > 0 &&
-                       !_torrents.Values.Any(state => state.ActualLast?.Left > 0);
+            {
+                if (_torrents.Count == 0)
+                    return false;
+                foreach (var state in _torrents.Values)
+                {
+                    if (state.ActualLast is { Left: > 0 })
+                        return false;
+                }
+
+                return true;
+            }
         }
     }
 
@@ -204,13 +237,17 @@ public sealed class AnnounceTransformer
         lock (_gate)
         {
             _torrents.Clear();
-            foreach (var persisted in states.Take(XRatioSettings.MaxPersistedTorrents))
+            var count = 0;
+            foreach (var persisted in states)
             {
+                if (count++ >= XRatioSettings.MaxPersistedTorrents)
+                    break;
                 if (persisted is null || string.IsNullOrWhiteSpace(persisted.InfoHash) ||
                     persisted.InfoHash.Length > MaximumInfoHashCharacters)
                     continue;
 
-                _torrents[persisted.InfoHash] = new TorrentState
+                var infoHash = InfoHashCodec.Normalize(persisted.InfoHash);
+                _torrents[infoHash] = new TorrentState
                 {
                     Tracker = persisted.Tracker,
                     ActualFirst = new Counters(0, 0, persisted.ActualFirstLeft),
@@ -235,22 +272,29 @@ public sealed class AnnounceTransformer
     {
         lock (_gate)
         {
-            return _torrents
-                .Where(item => item.Value.ActualLast is not null && item.Value.ReportedLast is not null)
-                .Select(item => new PersistedTorrentState(
+            var result = new List<PersistedTorrentState>(_torrents.Count);
+            foreach (var item in _torrents)
+            {
+                var state = item.Value;
+                if (state.ActualLast is not { } actual || state.ReportedLast is not { } reported)
+                    continue;
+                var actualFirstLeft = state.ActualFirst is { } first ? first.Left : actual.Left;
+                result.Add(new PersistedTorrentState(
                     item.Key,
-                    item.Value.Tracker,
-                    item.Value.ActualFirst?.Left ?? item.Value.ActualLast!.Left,
-                    item.Value.ActualLast!.Downloaded,
-                    item.Value.ActualLast.Uploaded,
-                    item.Value.ActualLast.Left,
-                    item.Value.ReportedLast!.Downloaded,
-                    item.Value.ReportedLast.Uploaded,
-                    item.Value.ReportedLast.Left,
-                    item.Value.CompletePeers,
-                    item.Value.IncompletePeers,
-                    item.Value.ReportedAt))
-                .ToArray();
+                    state.Tracker,
+                    actualFirstLeft,
+                    actual.Downloaded,
+                    actual.Uploaded,
+                    actual.Left,
+                    reported.Downloaded,
+                    reported.Uploaded,
+                    reported.Left,
+                    state.CompletePeers,
+                    state.IncompletePeers,
+                    state.ReportedAt));
+            }
+
+            return result.ToArray();
         }
     }
 
@@ -258,27 +302,31 @@ public sealed class AnnounceTransformer
     {
         lock (_gate)
         {
-            return _torrents.Select(item =>
-                {
-                    var actual = item.Value.ActualLast ?? new Counters(0, 0, 0);
-                    var reported = item.Value.ReportedLast ?? new Counters(0, 0, 0);
-                    return new TorrentSnapshot(
-                        item.Key,
-                        item.Value.Tracker,
-                        actual.Downloaded,
-                        actual.Uploaded,
-                        actual.Left,
-                        reported.Downloaded,
-                        reported.Uploaded,
-                        reported.Left,
-                        item.Value.ActualDownloadedTotal,
-                        item.Value.ActualUploadedTotal,
-                        item.Value.ReportedDownloadedTotal,
-                        item.Value.ReportedUploadedTotal,
-                        item.Value.CompletePeers,
-                        item.Value.IncompletePeers,
-                        item.Value.ReportedAt);
-                })
+            var result = new List<TorrentSnapshot>(_torrents.Count);
+            foreach (var item in _torrents)
+            {
+                var state = item.Value;
+                var actual = state.ActualLast is { } actualValue ? actualValue : default;
+                var reported = state.ReportedLast is { } reportedValue ? reportedValue : default;
+                result.Add(new TorrentSnapshot(
+                    item.Key,
+                    state.Tracker,
+                    actual.Downloaded,
+                    actual.Uploaded,
+                    actual.Left,
+                    reported.Downloaded,
+                    reported.Uploaded,
+                    reported.Left,
+                    state.ActualDownloadedTotal,
+                    state.ActualUploadedTotal,
+                    state.ReportedDownloadedTotal,
+                    state.ReportedUploadedTotal,
+                    state.CompletePeers,
+                    state.IncompletePeers,
+                    state.ReportedAt));
+            }
+
+            return result
                 .OrderByDescending(snapshot => snapshot.LastAnnounce)
                 .ToArray();
         }
@@ -286,6 +334,26 @@ public sealed class AnnounceTransformer
 
     private static bool TryCounter(string? value, out long result) =>
         long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out result) && result >= 0;
+
+    private static long SaturatingAdd(long current, long increment)
+    {
+        if (increment <= 0)
+            return current;
+        if (current >= long.MaxValue - increment)
+            return long.MaxValue;
+        return current + increment;
+    }
+
+    private static long RoundCounter(double value)
+    {
+        if (double.IsNaN(value) || value <= 0)
+            return 0;
+        if (value >= long.MaxValue)
+            return long.MaxValue;
+
+        var rounded = Math.Round(value, MidpointRounding.ToEven);
+        return rounded >= long.MaxValue ? long.MaxValue : (long)rounded;
+    }
 
     private double BetweenLegacyBounds(double lowerExpression, double upperExpression) =>
         lowerExpression + _random.NextDouble() * (upperExpression - lowerExpression);
@@ -296,8 +364,20 @@ public sealed class AnnounceTransformer
         {
             if (_torrents.Count >= XRatioSettings.MaxPersistedTorrents)
             {
-                var oldest = _torrents.MinBy(item => item.Value.ReportedAt ?? DateTimeOffset.MinValue);
-                _torrents.Remove(oldest.Key);
+                string? oldestKey = null;
+                var oldestTimestamp = DateTimeOffset.MaxValue;
+                foreach (var item in _torrents)
+                {
+                    var timestamp = item.Value.ReportedAt ?? DateTimeOffset.MinValue;
+                    if (oldestKey is null || timestamp < oldestTimestamp)
+                    {
+                        oldestKey = item.Key;
+                        oldestTimestamp = timestamp;
+                    }
+                }
+
+                if (oldestKey is not null)
+                    _torrents.Remove(oldestKey);
             }
             _torrents.Add(hash, state = new TorrentState());
         }
@@ -311,6 +391,14 @@ public sealed class AnnounceTransformer
             return string.Empty;
         var fragment = resource.IndexOf('#', query);
         return fragment < 0 ? resource[(query + 1)..] : resource[(query + 1)..fragment];
+    }
+
+    private static string ExtractPath(string resource)
+    {
+        var query = resource.IndexOf('?');
+        var fragment = resource.IndexOf('#');
+        var end = query < 0 ? fragment : fragment < 0 ? query : Math.Min(query, fragment);
+        return end < 0 ? resource : resource[..end];
     }
 
     private static string ExtractFragment(string resource)
@@ -335,5 +423,5 @@ public sealed class AnnounceTransformer
         public bool Restored { get; set; }
     }
 
-    private sealed record Counters(long Downloaded, long Uploaded, long Left);
+    private readonly record struct Counters(long Downloaded, long Uploaded, long Left);
 }

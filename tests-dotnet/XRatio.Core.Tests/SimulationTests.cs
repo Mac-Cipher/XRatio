@@ -3,6 +3,7 @@ using XRatio.Core.Torrents;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading.Channels;
 
 namespace XRatio.Core.Tests;
 
@@ -36,14 +37,14 @@ public sealed class SimulationTests
         };
 
         Assert.Equal("qbittorrent-5.2", options.ClientProfileId);
-        Assert.Equal(50_000 * 1024L, options.UploadBytesPerSecond);
-        Assert.Equal(5_000 * 1024L, options.DownloadBytesPerSecond);
+        Assert.Equal(10_000 * 1024L, options.UploadBytesPerSecond);
+        Assert.Equal(2_500 * 1024L, options.DownloadBytesPerSecond);
         Assert.True(options.RandomUploadEnabled);
-        Assert.Equal(10_000 * 1024L, options.RandomUploadMinimumBytesPerSecond);
-        Assert.Equal(50_000 * 1024L, options.RandomUploadMaximumBytesPerSecond);
+        Assert.Equal(5_000 * 1024L, options.RandomUploadMinimumBytesPerSecond);
+        Assert.Equal(15_000 * 1024L, options.RandomUploadMaximumBytesPerSecond);
         Assert.True(options.RandomDownloadEnabled);
-        Assert.Equal(5_000 * 1024L, options.RandomDownloadMinimumBytesPerSecond);
-        Assert.Equal(12_500 * 1024L, options.RandomDownloadMaximumBytesPerSecond);
+        Assert.Equal(1_000 * 1024L, options.RandomDownloadMinimumBytesPerSecond);
+        Assert.Equal(5_000 * 1024L, options.RandomDownloadMaximumBytesPerSecond);
         Assert.Equal(0, options.InitialCompletedPercent);
         Assert.Equal("  test-account  ", options.AccountName);
 
@@ -134,6 +135,71 @@ public sealed class SimulationTests
     }
 
     [Fact]
+    public async Task Sessions_UseSharedTickSourceAndUnsubscribeOnStop()
+    {
+        var tracker = new Uri("https://tracker.test/announce");
+        var source = new ManualTickSource();
+        var options = new SimulationOptions
+        {
+            Torrent = new TorrentMetadata("demo.torrent", "Demo", new string('A', 40), 1024 * 1024, 1, true, [tracker]),
+            Tracker = tracker,
+            UploadBytesPerSecond = 100,
+            DownloadBytesPerSecond = 0,
+            RandomUploadEnabled = false,
+            RandomDownloadEnabled = false
+        };
+        await using var first = new SimulationSession(options, new RecordingTrackerClient(), tickSource: source);
+        await using var second = new SimulationSession(options, new RecordingTrackerClient(), tickSource: source);
+        var firstAdvanced = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var secondAdvanced = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        first.Updated += (_, snapshot) =>
+        {
+            if (snapshot.Uploaded > 0)
+                firstAdvanced.TrySetResult();
+        };
+        second.Updated += (_, snapshot) =>
+        {
+            if (snapshot.Uploaded > 0)
+                secondAdvanced.TrySetResult();
+        };
+
+        await first.StartAsync();
+        await second.StartAsync();
+        Assert.Equal(2, source.SubscriptionCount);
+
+        source.Tick();
+        await firstAdvanced.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        await secondAdvanced.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        Assert.Equal(100, first.Snapshot.Uploaded);
+        Assert.Equal(100, second.Snapshot.Uploaded);
+
+        await first.StopAsync();
+        Assert.Equal(1, source.SubscriptionCount);
+        await second.StopAsync();
+        Assert.Equal(0, source.SubscriptionCount);
+    }
+
+    [Fact]
+    public async Task TickHub_StopsTimerWhenLastSubscriberLeaves()
+    {
+        await using var hub = new SimulationTickHub(TimeSpan.FromMilliseconds(10));
+        var first = await hub.SubscribeAsync();
+        var second = await hub.SubscribeAsync();
+
+        Assert.True(await first.WaitForNextTickAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(2)));
+        Assert.True(await second.WaitForNextTickAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(2)));
+
+        await first.DisposeAsync();
+        Assert.True(await second.WaitForNextTickAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(2)));
+        await second.DisposeAsync();
+
+        await hub.DisposeAsync();
+        await hub.DisposeAsync();
+        await Assert.ThrowsAsync<ObjectDisposedException>(async () =>
+            await hub.SubscribeAsync().AsTask());
+    }
+
+    [Fact]
     public async Task Session_AddsIndependentAbsoluteRandomSpeedsAndKeepsZeroDownload()
     {
         var tracker = new Uri("https://tracker.test/announce");
@@ -160,6 +226,34 @@ public sealed class SimulationTests
         Assert.Equal(125, session.Snapshot.UploadRate);
         Assert.Equal(0, session.Snapshot.DownloadRate);
         await session.StopAsync();
+    }
+
+    [Fact]
+    public async Task Session_AutomaticallyStopsAfterMaximumRuntime()
+    {
+        var tracker = new Uri("https://tracker.test/announce");
+        var fake = new RecordingTrackerClient();
+        var options = new SimulationOptions
+        {
+            Torrent = new TorrentMetadata("demo.torrent", "Demo", new string('A', 40), 1024, 1, true, [tracker]),
+            Tracker = tracker,
+            UploadBytesPerSecond = 0,
+            DownloadBytesPerSecond = 0,
+            MaximumRuntime = TimeSpan.FromSeconds(1)
+        };
+        await using var session = new SimulationSession(options, fake);
+        var stopped = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        session.Updated += (_, snapshot) =>
+        {
+            if (snapshot.State == SimulationState.Stopped && fake.Events.Contains(TrackerEvent.Stopped))
+                stopped.TrySetResult();
+        };
+
+        await session.StartAsync();
+        await stopped.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Equal(SimulationState.Stopped, session.State);
+        Assert.Equal([TrackerEvent.Started, TrackerEvent.Stopped], fake.Events);
     }
 
     [Fact]
@@ -296,6 +390,61 @@ public sealed class SimulationTests
             if (File.Exists(settingsPath))
                 File.Delete(settingsPath);
             Directory.Delete(directory);
+        }
+    }
+
+    [Fact]
+    public async Task SessionStore_IgnoresFilesWithTooManySessions()
+    {
+        var directory = Path.Combine(
+            Environment.CurrentDirectory,
+            "work",
+            "tmp",
+            "XRatio.SimulationTests",
+            Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var item = "{\"torrentPath\":\"demo.torrent\",\"tracker\":\"https://tracker.test/announce\"}";
+            await File.WriteAllTextAsync(
+                Path.Combine(directory, "simulations.json"),
+                "[" + string.Join(',', Enumerable.Repeat(item, 129)) + "]");
+
+            var loaded = await new SimulationSessionStore(directory).LoadAsync();
+
+            Assert.Empty(loaded);
+        }
+        finally
+        {
+            if (Directory.Exists(directory))
+                Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task SessionStore_IgnoresCorruptBackup()
+    {
+        var directory = Path.Combine(
+            Environment.CurrentDirectory,
+            "work",
+            "tmp",
+            "XRatio.SimulationTests",
+            Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            await File.WriteAllTextAsync(
+                Path.Combine(directory, "simulations.json.bak"),
+                "{not-json");
+
+            var loaded = await new SimulationSessionStore(directory).LoadAsync();
+
+            Assert.Empty(loaded);
+        }
+        finally
+        {
+            if (Directory.Exists(directory))
+                Directory.Delete(directory, recursive: true);
         }
     }
 
@@ -447,6 +596,81 @@ public sealed class SimulationTests
         {
             await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
             return new TrackerAnnounceResult(1800, 0, 0);
+        }
+    }
+
+    private sealed class ManualTickSource : ISimulationTickSource
+    {
+        private readonly object _gate = new();
+        private readonly List<ManualTickSubscription> _subscriptions = [];
+
+        public int SubscriptionCount
+        {
+            get
+            {
+                lock (_gate)
+                    return _subscriptions.Count;
+            }
+        }
+
+        public ValueTask<ISimulationTickSubscription> SubscribeAsync(
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var subscription = new ManualTickSubscription(this);
+            lock (_gate)
+                _subscriptions.Add(subscription);
+            return ValueTask.FromResult<ISimulationTickSubscription>(subscription);
+        }
+
+        public void Tick()
+        {
+            ManualTickSubscription[] subscriptions;
+            lock (_gate)
+                subscriptions = [.. _subscriptions];
+            foreach (var subscription in subscriptions)
+                subscription.Publish();
+        }
+
+        private void Remove(ManualTickSubscription subscription)
+        {
+            lock (_gate)
+                _subscriptions.Remove(subscription);
+        }
+
+        private sealed class ManualTickSubscription : ISimulationTickSubscription
+        {
+            private readonly ManualTickSource _owner;
+            private readonly Channel<bool> _ticks = Channel.CreateBounded<bool>(1);
+            private int _disposed;
+
+            public ManualTickSubscription(ManualTickSource owner)
+            {
+                _owner = owner;
+            }
+
+            public ValueTask<bool> WaitForNextTickAsync(CancellationToken cancellationToken = default) =>
+                WaitCoreAsync(cancellationToken);
+
+            private async ValueTask<bool> WaitCoreAsync(CancellationToken cancellationToken)
+            {
+                if (!await _ticks.Reader.WaitToReadAsync(cancellationToken))
+                    return false;
+                _ticks.Reader.TryRead(out _);
+                return true;
+            }
+
+            public void Publish() => _ticks.Writer.TryWrite(true);
+
+            public ValueTask DisposeAsync()
+            {
+                if (Interlocked.Exchange(ref _disposed, 1) == 0)
+                {
+                    _ticks.Writer.TryComplete();
+                    _owner.Remove(this);
+                }
+                return ValueTask.CompletedTask;
+            }
         }
     }
 }

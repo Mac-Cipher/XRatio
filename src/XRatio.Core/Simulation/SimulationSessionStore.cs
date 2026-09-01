@@ -102,11 +102,15 @@ public sealed record SavedSimulationSession
 
 public sealed class SimulationSessionStore
 {
+    private const long MaximumJsonBytes = 2 * 1024 * 1024;
+    private const int MaximumSavedSessions = 128;
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         WriteIndented = true,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        MaxDepth = 16
     };
     private readonly string _path;
 
@@ -126,17 +130,25 @@ public sealed class SimulationSessionStore
             try
             {
                 List<SavedSimulationSession> sessions;
+                var info = new FileInfo(candidate);
+                if (info.Length is <= 0 or > MaximumJsonBytes)
+                    throw new InvalidDataException("The saved simulation sessions file is too large.");
+
                 await using (var stream = File.OpenRead(candidate))
                 {
                     sessions = await JsonSerializer.DeserializeAsync<List<SavedSimulationSession>>(
                         stream, JsonOptions, cancellationToken).ConfigureAwait(false) ?? [];
                 }
+                if (sessions.Count > MaximumSavedSessions)
+                    throw new InvalidDataException("The saved simulation sessions file contains too many entries.");
+
                 var distinct = sessions.Distinct().ToArray();
                 if (candidate.Equals(_path, StringComparison.OrdinalIgnoreCase) && distinct.Length != sessions.Count)
                     await SaveAsync(distinct, cancellationToken).ConfigureAwait(false);
                 return distinct;
             }
-            catch (JsonException) when (candidate.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+            catch (Exception exception) when (
+                exception is JsonException or InvalidDataException or IOException)
             {
             }
         }
@@ -148,6 +160,9 @@ public sealed class SimulationSessionStore
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(sessions);
+        if (sessions.Count > MaximumSavedSessions)
+            throw new ArgumentOutOfRangeException(nameof(sessions), "Too many saved simulation sessions.");
+
         var temporary = _path + ".tmp";
         await using (var stream = new FileStream(
             temporary, FileMode.Create, FileAccess.Write, FileShare.None, 4096, FileOptions.WriteThrough))
@@ -158,6 +173,8 @@ public sealed class SimulationSessionStore
                 JsonOptions,
                 cancellationToken).ConfigureAwait(false);
             await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+            if (stream.Length > MaximumJsonBytes)
+                throw new InvalidDataException("The saved simulation sessions file is too large.");
         }
         if (File.Exists(_path))
             File.Replace(temporary, _path, _path + ".bak", true);

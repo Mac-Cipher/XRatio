@@ -16,8 +16,16 @@ internal static class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        if (UpdateInstaller.TryRunApplyCommand(args, out var updaterExitCode))
+        {
+            Environment.ExitCode = updaterExitCode;
+            return;
+        }
+
         if (OperatingSystem.IsWindows() && !TryAcquireSingleInstance())
             return;
+
+        UpdateInstaller.ScheduleStaleArtifactCleanup(UpdateInstaller.GetCurrentExecutablePath());
 
         try
         {
@@ -39,22 +47,32 @@ internal static class Program
         var cancellationToken = _activationCancellation.Token;
         _activationTask = Task.Run(() =>
         {
-            while (!cancellationToken.IsCancellationRequested)
-            {
-                bool activated;
-                try
-                {
-                    activated = _activateEvent.WaitOne(250);
-                }
-                catch (ObjectDisposedException)
-                {
-                    return;
-                }
-
-                if (activated && !cancellationToken.IsCancellationRequested)
-                    Dispatcher.UIThread.Post(window.ShowFromTray);
-            }
+            while (WaitForActivation(_activateEvent, cancellationToken))
+                Dispatcher.UIThread.Post(window.ShowFromTray);
         }, cancellationToken);
+    }
+
+    /// <summary>
+    /// Waits for the named activation event without polling. The shutdown path
+    /// signals the same event after cancelling the token, which wakes this
+    /// blocking wait immediately and keeps the listener at zero CPU while idle.
+    /// </summary>
+    internal static bool WaitForActivation(
+        EventWaitHandle activationEvent,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(activationEvent);
+        if (cancellationToken.IsCancellationRequested)
+            return false;
+
+        try
+        {
+            return activationEvent.WaitOne() && !cancellationToken.IsCancellationRequested;
+        }
+        catch (ObjectDisposedException)
+        {
+            return false;
+        }
     }
 
     private static bool TryAcquireSingleInstance()

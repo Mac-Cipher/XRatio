@@ -159,7 +159,7 @@ public sealed class QbittorrentHttpsIsolatedSmokeTests
                 var request = await observedRequest.Task.WaitAsync(timeout.Token);
                 Assert.Contains("GET /announce?", request, StringComparison.Ordinal);
                 Assert.Contains("info_hash=", request, StringComparison.Ordinal);
-                Assert.Contains("left=0", request, StringComparison.Ordinal);
+                Assert.DoesNotContain("left=0", request, StringComparison.Ordinal);
                 Assert.Contains("uploaded=0", request, StringComparison.Ordinal);
             }
         }

@@ -55,7 +55,11 @@ public static class ClientProfileCatalog
         new("generic", "Generic BitTorrent", "BitTorrent/1.0", "-XR1000-")
     ];
 
+    private static readonly IReadOnlyDictionary<string, ClientProfile> ProfilesById =
+        All.ToDictionary(profile => profile.Id, StringComparer.OrdinalIgnoreCase);
+
     public static ClientProfile Get(string id) =>
-        All.FirstOrDefault(profile => string.Equals(profile.Id, id, StringComparison.OrdinalIgnoreCase)) ??
-        throw new KeyNotFoundException($"Unknown client profile: {id}.");
+        id is not null && ProfilesById.TryGetValue(id, out var profile)
+            ? profile
+            : throw new KeyNotFoundException($"Unknown client profile: {id}.");
 }

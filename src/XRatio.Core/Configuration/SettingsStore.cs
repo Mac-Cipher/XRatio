@@ -20,10 +20,13 @@ public enum SettingsLoadSource
 
 public sealed class JsonSettingsStore : ISettingsStore
 {
+    private const long MaximumJsonBytes = 256 * 1024;
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
-        PropertyNameCaseInsensitive = true
+        PropertyNameCaseInsensitive = true,
+        MaxDepth = 16
     };
 
     private readonly string _profileDirectory;
@@ -107,13 +110,18 @@ public sealed class JsonSettingsStore : ISettingsStore
             return null;
         try
         {
+            var info = new FileInfo(path);
+            if (info.Length is <= 0 or > MaximumJsonBytes)
+                return null;
+
             await using var stream = File.OpenRead(path);
             return (await JsonSerializer.DeserializeAsync<XRatioSettings>(
                 stream,
                 JsonOptions,
                 cancellationToken))?.Validate();
         }
-        catch (Exception exception) when (exception is IOException or JsonException or ArgumentException)
+        catch (Exception exception) when (
+            exception is IOException or JsonException or ArgumentException or InvalidDataException)
         {
             return null;
         }

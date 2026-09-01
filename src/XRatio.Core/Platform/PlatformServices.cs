@@ -31,6 +31,8 @@ public interface ICertificateTrustStore : IDisposable
 {
     bool IsTrusted(string thumbprint);
 
+    X509Certificate2? FindTrusted(string thumbprint);
+
     X509Certificate2? FindPrivate(string thumbprint);
 
     X509Certificate2 ImportAndStorePrivate(

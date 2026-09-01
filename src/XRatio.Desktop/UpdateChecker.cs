@@ -9,6 +9,8 @@ internal sealed record UpdateCheckResult(
     string? ReleaseName,
     Uri? ReleaseUri,
     Uri? DownloadUri,
+    Uri? ExecutableDownloadUri,
+    Uri? ExecutableChecksumUri,
     bool IsUpdateAvailable,
     string? Error);
 
@@ -16,6 +18,11 @@ internal static class UpdateChecker
 {
     internal const string LatestReleaseApi =
         "https://api.github.com/repos/Mac-Cipher/XRatio/releases/latest";
+    internal const string TestUpdateVersionEnvironmentVariable =
+        "XRATIO_TEST_UPDATE_VERSION";
+
+    private static readonly Uri TestReleaseUri =
+        new("https://github.com/Mac-Cipher/XRatio/releases/latest");
 
     private static readonly HttpClient Client = CreateClient();
 
@@ -23,6 +30,10 @@ internal static class UpdateChecker
         string currentVersion,
         CancellationToken cancellationToken = default)
     {
+        var testVersion = Environment.GetEnvironmentVariable(TestUpdateVersionEnvironmentVariable);
+        if (CreateTestUpdateResult(currentVersion, testVersion) is { } testResult)
+            return testResult;
+
         try
         {
             using var response = await Client.GetAsync(
@@ -52,6 +63,31 @@ internal static class UpdateChecker
         }
     }
 
+    /// <summary>
+    /// Creates a local-only update result for an isolated manual UI test.
+    /// The synthetic result deliberately has no executable/checksum assets, so
+    /// the test can show the update affordance without enabling installation.
+    /// </summary>
+    internal static UpdateCheckResult? CreateTestUpdateResult(
+        string currentVersion,
+        string? requestedVersion)
+    {
+        var latestVersion = NormalizeTag(requestedVersion);
+        if (latestVersion is null || !IsNewerVersion(currentVersion, latestVersion))
+            return null;
+
+        return new UpdateCheckResult(
+            currentVersion,
+            latestVersion,
+            "XRatio local update test",
+            TestReleaseUri,
+            TestReleaseUri,
+            null,
+            null,
+            true,
+            null);
+    }
+
     internal static UpdateCheckResult ParseRelease(string currentVersion, JsonElement release)
     {
         var tag = release.TryGetProperty("tag_name", out var tagElement)
@@ -69,6 +105,8 @@ internal static class UpdateChecker
             : null;
         Uri.TryCreate(releaseUrl, UriKind.Absolute, out var releaseUri);
         var downloadUri = ParseDownloadUri(release);
+        var executableDownloadUri = ParseAssetUri(release, "XRatio.exe");
+        var executableChecksumUri = ParseAssetUri(release, "XRatio.exe.sha256");
 
         return new UpdateCheckResult(
             currentVersion,
@@ -76,8 +114,30 @@ internal static class UpdateChecker
             releaseName,
             releaseUri,
             downloadUri,
+            executableDownloadUri,
+            executableChecksumUri,
             IsNewerVersion(currentVersion, latestVersion),
             null);
+    }
+
+    private static Uri? ParseAssetUri(JsonElement release, string assetName)
+    {
+        if (!release.TryGetProperty("assets", out var assets) ||
+            assets.ValueKind != JsonValueKind.Array)
+            return null;
+
+        foreach (var asset in assets.EnumerateArray())
+        {
+            if (!asset.TryGetProperty("name", out var nameElement) ||
+                !string.Equals(nameElement.GetString(), assetName, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            if (asset.TryGetProperty("browser_download_url", out var downloadElement) &&
+                Uri.TryCreate(downloadElement.GetString(), UriKind.Absolute, out var downloadUri))
+                return downloadUri;
+        }
+
+        return null;
     }
 
     private static Uri? ParseDownloadUri(JsonElement release)
@@ -134,5 +194,5 @@ internal static class UpdateChecker
     }
 
     private static UpdateCheckResult Failure(string currentVersion, string error) =>
-        new(currentVersion, null, null, null, null, false, error);
+        new(currentVersion, null, null, null, null, null, null, false, error);
 }

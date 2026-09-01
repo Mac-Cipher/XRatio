@@ -18,11 +18,15 @@ public sealed record SimulationFormSettings
     public string RandomDownloadMinimumKiBPerSecond { get; init; } = SimulationDefaults.RandomDownloadMinimumKiBPerSecond.ToString();
     public string RandomDownloadMaximumKiBPerSecond { get; init; } = SimulationDefaults.RandomDownloadMaximumKiBPerSecond.ToString();
     public string CompletedPercent { get; init; } = SimulationDefaults.InitialCompletedPercent.ToString();
+    // Distinguishes an intentional value from the legacy 100% form default.
+    // Older settings files omit this property and are migrated by the desktop form.
+    public bool CompletedPercentCustomized { get; init; }
     public string ListeningPort { get; init; } = "6881";
     public string PeersRequested { get; init; } = "200";
     public string AnnounceIntervalSeconds { get; init; } = "1800";
     public int StopMode { get; init; }
     public string StopValue { get; init; } = string.Empty;
+    public string StopTimerUnit { get; init; } = "Minutes";
     public string ProxyAddress { get; init; } = string.Empty;
     public string ProxyUsername { get; init; } = string.Empty;
 }
@@ -33,14 +37,18 @@ public sealed record XRatioSettings
     public string ThemeMode { get; init; } = "Light";
     public string AccentColor { get; init; } = "Blue";
     public string TrayIconStyle { get; init; } = "Color";
-    public string Language { get; init; } = "French";
+    public string Language { get; init; } = "English";
     public bool ShowTrayIcon { get; init; } = true;
+    public bool OnboardingDismissed { get; init; }
+    public IReadOnlyList<string> OnboardingCompletedSteps { get; init; } =
+        Array.Empty<string>();
     public int ListenPort { get; init; } = 3773;
     public bool OnlyTrackerTraffic { get; init; } = true;
     public bool OnlyLocalConnections { get; init; } = true;
     public bool ProxyDebugLogging { get; init; }
-    public bool StartMinimized { get; init; }
-    public bool AutoStart { get; init; }
+    public bool StartMinimized { get; init; } = true;
+    public bool AutoStart { get; init; } = true;
+    public bool CheckUpdatesOnStartup { get; init; } = true;
     public int MinimumPeers { get; init; } = 5;
     public double UploadPerDownloadMinimum { get; init; }
     public double UploadPerDownloadMaximum { get; init; } = 0.05;
@@ -86,10 +94,18 @@ public sealed record XRatioSettings
             throw new ArgumentNullException(nameof(PersistedTorrents));
         if (PersistedTorrents.Count > MaxPersistedTorrents)
             throw new ArgumentOutOfRangeException(nameof(PersistedTorrents));
+        if (OnboardingCompletedSteps is null)
+            throw new ArgumentNullException(nameof(OnboardingCompletedSteps));
+        if (OnboardingCompletedSteps.Count > 32 ||
+            OnboardingCompletedSteps.Any(step =>
+                string.IsNullOrWhiteSpace(step) || step.Length > 64))
+            throw new ArgumentOutOfRangeException(nameof(OnboardingCompletedSteps));
         if (SimulationForm is null)
             throw new ArgumentNullException(nameof(SimulationForm));
         if (SimulationForm.StopMode is < 0 or > 4)
             throw new ArgumentOutOfRangeException(nameof(SimulationForm.StopMode));
+        if (SimulationForm.StopTimerUnit is not ("Minutes" or "Hours"))
+            throw new ArgumentOutOfRangeException(nameof(SimulationForm.StopTimerUnit));
         if (PersistedTorrents.Any(state =>
                 state is null ||
                 state.ActualFirstLeft < 0 ||

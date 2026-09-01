@@ -16,6 +16,12 @@
 *.userosscache
 *.sln.docstates
 
+# Local signing keys and certificate exports
+*.pfx
+*.p12
+*.pem
+*.key
+
 # OS files
 Thumbs.db
 Desktop.ini

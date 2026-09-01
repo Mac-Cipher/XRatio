@@ -6,15 +6,21 @@ namespace XRatio.Core.Tests;
 public sealed class SettingsStoreTests
 {
     [Fact]
-    public void NewSettings_EnableAnnounceSpoofingByDefault()
+    public void NewSettings_UseEnglishAndEnablePretendSeedingByDefault()
     {
         var settings = new XRatioSettings();
 
         Assert.True(settings.ReportDownloadAsZero);
+        Assert.Equal("English", settings.Language);
         Assert.True(settings.PretendToSeed);
         Assert.Equal("Blue", settings.AccentColor);
         Assert.Equal("Color", settings.TrayIconStyle);
         Assert.True(settings.ShowTrayIcon);
+        Assert.True(settings.StartMinimized);
+        Assert.True(settings.AutoStart);
+        Assert.True(settings.CheckUpdatesOnStartup);
+        Assert.False(settings.OnboardingDismissed);
+        Assert.Empty(settings.OnboardingCompletedSteps);
     }
 
     [Fact]
@@ -60,6 +66,9 @@ public sealed class SettingsStoreTests
             AccentColor = "Teal",
             TrayIconStyle = "Monochrome",
             ShowTrayIcon = false,
+            CheckUpdatesOnStartup = false,
+            OnboardingDismissed = true,
+            OnboardingCompletedSteps = ["proxy", "qbittorrent"],
             PretendToSeed = true,
             SimulationForm = new SimulationFormSettings
             {
@@ -69,8 +78,10 @@ public sealed class SettingsStoreTests
                 DownloadKiBPerSecond = "3210",
                 RandomDownloadEnabled = false,
                 CompletedPercent = "37.5",
+                CompletedPercentCustomized = true,
                 StopMode = 4,
                 StopValue = "2.75",
+                StopTimerUnit = "Hours",
                 ProxyAddress = "http://127.0.0.1:8080"
             },
             PersistedTorrents = [persisted]
@@ -84,6 +95,9 @@ public sealed class SettingsStoreTests
         Assert.Equal(expected.AccentColor, actual.AccentColor);
         Assert.Equal(expected.TrayIconStyle, actual.TrayIconStyle);
         Assert.Equal(expected.ShowTrayIcon, actual.ShowTrayIcon);
+        Assert.Equal(expected.CheckUpdatesOnStartup, actual.CheckUpdatesOnStartup);
+        Assert.Equal(expected.OnboardingDismissed, actual.OnboardingDismissed);
+        Assert.Equal(expected.OnboardingCompletedSteps, actual.OnboardingCompletedSteps);
         Assert.Equal(expected.PretendToSeed, actual.PretendToSeed);
         Assert.Equal(expected.SimulationForm, actual.SimulationForm);
         Assert.Equal(persisted, Assert.Single(actual.PersistedTorrents));
@@ -105,6 +119,35 @@ public sealed class SettingsStoreTests
 
         Assert.Equal(SettingsLoadSource.Defaults, store.LastLoadSource);
         Assert.Equal(3773, actual.ListenPort);
+    }
+
+    [Fact]
+    public async Task Load_IgnoresOversizedJson()
+    {
+        var directory = Path.Combine(
+            Environment.CurrentDirectory,
+            "work",
+            "tmp",
+            "XRatio.SettingsTests",
+            Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            await File.WriteAllTextAsync(
+                Path.Combine(directory, "settings.json"),
+                new string(' ', (256 * 1024) + 1));
+            var store = new JsonSettingsStore(directory);
+
+            var actual = await store.LoadAsync();
+
+            Assert.Equal(SettingsLoadSource.Defaults, store.LastLoadSource);
+            Assert.Equal(3773, actual.ListenPort);
+        }
+        finally
+        {
+            if (Directory.Exists(directory))
+                Directory.Delete(directory, recursive: true);
+        }
     }
 
     [Fact]

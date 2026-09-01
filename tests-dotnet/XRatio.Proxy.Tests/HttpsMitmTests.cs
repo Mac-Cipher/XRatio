@@ -65,7 +65,7 @@ public sealed class HttpsMitmTests
         }
         await tls.WriteAsync(
             Encoding.ASCII.GetBytes(
-                "GET /announce?info_hash=abc&downloaded=50&uploaded=20&left=700 HTTP/1.1\r\nHost: tracker.test\r\nConnection: close\r\n\r\n"),
+                "GET /announce?info_hash=abc&downloaded=50&uploaded=20&left=0 HTTP/1.1\r\nHost: tracker.test\r\nConnection: close\r\n\r\n"),
             timeout.Token);
         using var response = new MemoryStream();
         await tls.CopyToAsync(response, timeout.Token);

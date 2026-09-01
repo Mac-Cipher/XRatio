@@ -26,25 +26,38 @@ public static partial class ProxyDebugRedactor
     public static string RedactSensitive(string text)
     {
         ArgumentNullException.ThrowIfNull(text);
+        if (text.IndexOf('=') < 0 && text.IndexOf('/') < 0)
+            return text;
         var redacted = SensitiveQueryPattern().Replace(text, "${key}=<redacted>");
         return SensitivePathPattern().Replace(redacted, "/<redacted>");
     }
 }
 
 /// <summary>
-/// Best-effort rotating file logger. Diagnostics must never interrupt proxy
-/// traffic, so all filesystem failures are intentionally swallowed.
+/// Best-effort rotating file logger with bounded retention. Diagnostics must
+/// never interrupt proxy traffic, so all filesystem failures are intentionally
+/// swallowed.
 /// </summary>
 public sealed class FileProxyDebugLogger : IProxyDebugLogger
 {
     private const long MaximumBytes = 1024 * 1024;
+    private static readonly TimeSpan MaximumAge = TimeSpan.FromDays(7);
+    private static readonly TimeSpan PurgeInterval = TimeSpan.FromHours(1);
     private readonly string _path;
+    private readonly string _backupPath;
+    private readonly string? _directory;
     private readonly object _gate = new();
+    private DateTimeOffset _nextPurgeUtc;
 
     public FileProxyDebugLogger(string path)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         _path = Path.GetFullPath(path);
+        _backupPath = _path + ".1";
+        _directory = Path.GetDirectoryName(_path);
+        var now = DateTimeOffset.UtcNow;
+        PurgeExpiredFiles(now);
+        _nextPurgeUtc = now + PurgeInterval;
     }
 
     public void Write(string message)
@@ -54,12 +67,17 @@ public sealed class FileProxyDebugLogger : IProxyDebugLogger
         {
             lock (_gate)
             {
-                var directory = Path.GetDirectoryName(_path);
-                if (string.IsNullOrWhiteSpace(directory))
+                if (string.IsNullOrWhiteSpace(_directory))
                     return;
-                Directory.CreateDirectory(directory);
+                Directory.CreateDirectory(_directory);
+                var now = DateTimeOffset.UtcNow;
+                if (now >= _nextPurgeUtc)
+                {
+                    PurgeExpiredFiles(now);
+                    _nextPurgeUtc = now + PurgeInterval;
+                }
                 if (File.Exists(_path) && new FileInfo(_path).Length >= MaximumBytes)
-                    File.Move(_path, _path + ".1", overwrite: true);
+                    File.Move(_path, _backupPath, overwrite: true);
 
                 var line = $"{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss}: " +
                            ProxyDebugRedactor.RedactSensitive(message) +
@@ -71,6 +89,29 @@ public sealed class FileProxyDebugLogger : IProxyDebugLogger
         {
             // Debug logging is strictly optional and must never disrupt proxy
             // traffic because a profile directory can be read-only or locked.
+        }
+    }
+
+    private void PurgeExpiredFiles(DateTimeOffset now)
+    {
+        DeleteIfExpired(_path, now);
+        DeleteIfExpired(_backupPath, now);
+    }
+
+    private static void DeleteIfExpired(string path, DateTimeOffset now)
+    {
+        try
+        {
+            if (!File.Exists(path))
+                return;
+
+            var lastWriteUtc = File.GetLastWriteTimeUtc(path);
+            if (now.UtcDateTime - lastWriteUtc >= MaximumAge)
+                File.Delete(path);
+        }
+        catch (Exception)
+        {
+            // A stale diagnostic file is best-effort cleanup only.
         }
     }
 }

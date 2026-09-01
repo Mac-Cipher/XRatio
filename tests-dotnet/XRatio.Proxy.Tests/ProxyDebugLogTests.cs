@@ -30,10 +30,7 @@ public sealed class ProxyDebugLogTests
     [Fact]
     public void FileLogger_RotatesAndNeverWritesUnredactedSecrets()
     {
-        var root = Path.Combine(
-            Path.GetTempPath(),
-            "XRatio.ProxyDebugLogTests",
-            Guid.NewGuid().ToString("N"));
+        var root = CreateTestRoot();
         var path = Path.Combine(root, "proxy_debug.log");
         try
         {
@@ -51,6 +48,49 @@ public sealed class ProxyDebugLogTests
             if (Directory.Exists(root))
                 Directory.Delete(root, recursive: true);
         }
+    }
+
+    [Fact]
+    public void FileLogger_RemovesFilesOlderThanSevenDays()
+    {
+        var root = CreateTestRoot();
+        var path = Path.Combine(root, "proxy_debug.log");
+        try
+        {
+            Directory.CreateDirectory(root);
+            File.WriteAllText(path, "stale");
+            File.WriteAllText(path + ".1", "stale backup");
+            var expiredUtc = DateTime.UtcNow - TimeSpan.FromDays(8);
+            File.SetLastWriteTimeUtc(path, expiredUtc);
+            File.SetLastWriteTimeUtc(path + ".1", expiredUtc);
+
+            var logger = new FileProxyDebugLogger(path);
+            logger.Write("fresh");
+
+            Assert.True(File.Exists(path));
+            Assert.False(File.Exists(path + ".1"));
+            Assert.Contains("fresh", File.ReadAllText(path), StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
+        }
+    }
+
+    private static string CreateTestRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null &&
+               !File.Exists(Path.Combine(directory.FullName, "XRatio.slnx")))
+            directory = directory.Parent;
+
+        var workspace = directory?.FullName ?? AppContext.BaseDirectory;
+        return Path.Combine(
+            workspace,
+            "work",
+            "tmp",
+            $"XRatio.ProxyDebugLogTests-{Guid.NewGuid():N}");
     }
 }
 
