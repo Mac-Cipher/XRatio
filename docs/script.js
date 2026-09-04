@@ -1,76 +1,36 @@
 (() => {
   const root = document.documentElement;
-  const languageButtons = [...document.querySelectorAll('[data-language]')];
-  const translatable = [...document.querySelectorAll('[data-fr][data-en]')];
-  const description = document.querySelector('meta[name="description"]');
-  const ogDescription = document.querySelector('meta[property="og:description"]');
-  const heroVisual = document.querySelector('.hero-visual');
-  const localizedAlts = [...document.querySelectorAll('[data-fr-alt][data-en-alt]')];
-  const localizedLinks = [...document.querySelectorAll('[data-fr-href][data-en-href]')];
-
-  const copy = {
-    fr: {
-      title: 'XRatio — Contrôle ratio local',
-      description: 'XRatio — contrôle local des annonces de trackers et simulation torrent maîtrisée.',
-      ogDescription: 'Une interface native pour observer, comprendre et contrôler les annonces de trackers.',
-      navLabel: 'Navigation principale',
-      languageLabel: 'Choisir la langue',
-      heroVisualLabel: 'Aperçu de l’application XRatio'
-    },
-    en: {
-      title: 'XRatio — Local ratio control',
-      description: 'XRatio — local tracker announce control and deliberate torrent simulation.',
-      ogDescription: 'A native interface to observe, understand, and control tracker announces.',
-      navLabel: 'Main navigation',
-      languageLabel: 'Choose language',
-      heroVisualLabel: 'XRatio application preview'
-    }
+  let theme = 'dim';
+  const text = {
+    en: {title:'XRatio — Your torrents. A clearer view.',description:'Observe tracker announces, control reported counters and run independent torrent simulations with XRatio for Windows.',nav:'Main navigation',language:'Choose language',preview:'Preview theme',alt:'XRatio application overview',skip:'Skip to content'},
+    fr: {title:'XRatio — Vos torrents. Une vision plus claire.',description:'Observez les annonces aux trackers, ajustez les compteurs rapportés et lancez des simulations indépendantes avec XRatio pour Windows.',nav:'Navigation principale',language:'Choisir la langue',preview:'Thème de l’aperçu',alt:'Vue d’ensemble de l’application XRatio',skip:'Aller au contenu'}
   };
-
-  function setLanguage(language, persist = true) {
-    const selected = copy[language] ? language : 'fr';
-    root.lang = selected;
-    document.title = copy[selected].title;
-    description?.setAttribute('content', copy[selected].description);
-    ogDescription?.setAttribute('content', copy[selected].ogDescription);
-    document.querySelector('nav')?.setAttribute('aria-label', copy[selected].navLabel);
-    document.querySelector('.language-switch')?.setAttribute('aria-label', copy[selected].languageLabel);
-    heroVisual?.setAttribute('aria-label', copy[selected].heroVisualLabel);
-    localizedAlts.forEach((element) => {
-      const value = element.dataset[`${selected}Alt`];
-      if (value) element.setAttribute('alt', value);
-    });
-    localizedLinks.forEach((element) => {
-      const value = element.dataset[`${selected}Href`];
-      if (value) element.setAttribute('href', value);
-    });
-
-    translatable.forEach((element) => {
-      const value = element.dataset[selected];
-      if (!value) return;
-      const icon = element.querySelector('[aria-hidden]');
-      element.textContent = value;
-      if (icon) element.append(icon);
-    });
-
-    languageButtons.forEach((button) => {
-      const active = button.dataset.language === selected;
-      button.classList.toggle('is-active', active);
-      button.setAttribute('aria-pressed', String(active));
-    });
-
-    if (persist) localStorage.setItem('xratio-language', selected);
+  function setLanguage(value, persist = true) {
+    const language = value === 'fr' ? 'fr' : 'en';
+    root.lang = language;
+    const copy = text[language];
+    document.title = copy.title;
+    document.querySelector('meta[property="og:title"]').content = copy.title;
+    for (const selector of ['meta[name="description"]','meta[property="og:description"]']) document.querySelector(selector).content = copy.description;
+    document.querySelectorAll('[data-en][data-fr]').forEach(el => { el.textContent = el.dataset[language]; });
+    document.querySelectorAll('[data-language]').forEach(el => el.setAttribute('aria-pressed', String(el.dataset.language === language)));
+    document.querySelector('nav').setAttribute('aria-label', copy.nav);
+    document.querySelector('.language-switch').setAttribute('aria-label', copy.language);
+    document.querySelector('.theme-switch').setAttribute('aria-label', copy.preview);
+    document.querySelector('#screenshot').alt = copy.alt;
+    document.querySelector('.skip').textContent = copy.skip;
+    document.querySelector('[data-doc-link]').href = language === 'fr' ? 'https://github.com/Mac-Cipher/XRatio/blob/master/README.fr.md' : 'https://github.com/Mac-Cipher/XRatio#install-and-configure-a-torrent-client';
+    if (persist) { try { localStorage.setItem('xratio-language', language); } catch {} }
   }
-
-  languageButtons.forEach((button) => {
-    button.addEventListener('click', () => setLanguage(button.dataset.language));
-  });
-
-  const savedLanguage = localStorage.getItem('xratio-language');
-  setLanguage(savedLanguage || 'en', false);
-
-  const header = document.querySelector('[data-header]');
-  const updateHeader = () => header?.classList.toggle('is-scrolled', window.scrollY > 12);
-  updateHeader();
-  window.addEventListener('scroll', updateHeader, { passive: true });
+  document.querySelectorAll('[data-language]').forEach(el => el.addEventListener('click', () => setLanguage(el.dataset.language)));
+  document.querySelectorAll('[data-theme]').forEach(el => el.addEventListener('click', () => {
+    theme = el.dataset.theme;
+    const src = theme === 'light' ? 'screenshots/overview-light.png' : 'screenshots/overview-dim-theme.png';
+    document.querySelector('#screenshot').src = src;
+    document.querySelector('#screenshot-link').href = src;
+    document.querySelectorAll('[data-theme]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.theme === theme)));
+  }));
+  let saved = 'en';
+  try { saved = localStorage.getItem('xratio-language') || 'en'; } catch {}
+  setLanguage(saved, false);
 })();
