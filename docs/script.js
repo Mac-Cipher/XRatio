@@ -1,36 +1,127 @@
 (() => {
   const root = document.documentElement;
-  let theme = 'dim';
-  const text = {
-    en: {title:'XRatio — Your torrents. A clearer view.',description:'Observe tracker announces, control reported counters and run independent torrent simulations with XRatio for Windows.',nav:'Main navigation',language:'Choose language',preview:'Preview theme',alt:'XRatio application overview',skip:'Skip to content'},
-    fr: {title:'XRatio — Vos torrents. Une vision plus claire.',description:'Observez les annonces aux trackers, ajustez les compteurs rapportés et lancez des simulations indépendantes avec XRatio pour Windows.',nav:'Navigation principale',language:'Choisir la langue',preview:'Thème de l’aperçu',alt:'Vue d’ensemble de l’application XRatio',skip:'Aller au contenu'}
+  const dialog = document.querySelector('#preview-dialog');
+  const image = document.querySelector('#screenshot');
+  const fullImage = document.querySelector('#full-screenshot');
+  const modeButtons = [...document.querySelectorAll('[data-mode]')];
+  let language = 'en';
+  let theme = 'light';
+
+  const copy = {
+    en: {
+      title: 'XRatio — Tracker announce control for Windows',
+      description: 'XRatio is a Windows app for tracker announce interception and independent torrent simulation.',
+      navigation: 'Main navigation', language: 'Choose language', theme: 'Screenshot theme',
+      preview: 'Application preview', enlarge: 'Enlarge application screenshot', close: 'Close screenshot',
+      mode: 'Operating mode', alt: 'XRatio application overview',
+      doc: 'https://github.com/Mac-Cipher/XRatio#readme'
+    },
+    fr: {
+      title: 'XRatio — Contrôle des annonces aux trackers pour Windows',
+      description: 'XRatio est une application Windows d’interception des annonces aux trackers et de simulation torrent indépendante.',
+      navigation: 'Navigation principale', language: 'Choisir la langue', theme: 'Thème de la capture',
+      preview: 'Aperçu de l’application', enlarge: 'Agrandir la capture de l’application', close: 'Fermer la capture',
+      mode: 'Mode de fonctionnement', alt: 'Vue d’ensemble de l’application XRatio',
+      doc: 'https://github.com/Mac-Cipher/XRatio/blob/master/README.fr.md'
+    }
   };
+
+  function updateImageLabel() {
+    const themeName = theme === 'light' ? (language === 'fr' ? 'clair' : 'light') : (language === 'fr' ? 'tamisé' : 'dim');
+    image.alt = `${copy[language].alt} — ${themeName}`;
+    fullImage.alt = image.alt;
+  }
+
   function setLanguage(value, persist = true) {
-    const language = value === 'fr' ? 'fr' : 'en';
+    language = value === 'fr' ? 'fr' : 'en';
     root.lang = language;
-    const copy = text[language];
-    document.title = copy.title;
-    document.querySelector('meta[property="og:title"]').content = copy.title;
-    for (const selector of ['meta[name="description"]','meta[property="og:description"]']) document.querySelector(selector).content = copy.description;
-    document.querySelectorAll('[data-en][data-fr]').forEach(el => { el.textContent = el.dataset[language]; });
-    document.querySelectorAll('[data-language]').forEach(el => el.setAttribute('aria-pressed', String(el.dataset.language === language)));
-    document.querySelector('nav').setAttribute('aria-label', copy.nav);
-    document.querySelector('.language-switch').setAttribute('aria-label', copy.language);
-    document.querySelector('.theme-switch').setAttribute('aria-label', copy.preview);
-    document.querySelector('#screenshot').alt = copy.alt;
-    document.querySelector('.skip').textContent = copy.skip;
-    document.querySelector('[data-doc-link]').href = language === 'fr' ? 'https://github.com/Mac-Cipher/XRatio/blob/master/README.fr.md' : 'https://github.com/Mac-Cipher/XRatio#install-and-configure-a-torrent-client';
+    const selected = copy[language];
+    document.title = selected.title;
+    document.querySelector('meta[property="og:title"]').content = selected.title;
+    document.querySelector('meta[name="description"]').content = selected.description;
+    document.querySelector('meta[property="og:description"]').content = selected.description;
+    document.querySelectorAll('[data-en][data-fr]').forEach(element => { element.textContent = element.dataset[language]; });
+    document.querySelectorAll('[data-language]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.language === language)));
+    document.querySelector('nav').setAttribute('aria-label', selected.navigation);
+    document.querySelector('.language-switch').setAttribute('aria-label', selected.language);
+    document.querySelector('.theme-switch').setAttribute('aria-label', selected.theme);
+    document.querySelector('.showcase').setAttribute('aria-label', selected.preview);
+    document.querySelector('[data-open-preview]').setAttribute('aria-label', selected.enlarge);
+    document.querySelector('[data-close-preview]').setAttribute('aria-label', selected.close);
+    document.querySelector('[role="tablist"]').setAttribute('aria-label', selected.mode);
+    dialog.setAttribute('aria-label', selected.preview);
+    document.querySelectorAll('[data-doc]').forEach(link => { link.href = selected.doc; });
+    updateImageLabel();
     if (persist) { try { localStorage.setItem('xratio-language', language); } catch {} }
   }
-  document.querySelectorAll('[data-language]').forEach(el => el.addEventListener('click', () => setLanguage(el.dataset.language)));
-  document.querySelectorAll('[data-theme]').forEach(el => el.addEventListener('click', () => {
-    theme = el.dataset.theme;
-    const src = theme === 'light' ? 'screenshots/overview-light.png' : 'screenshots/overview-dim-theme.png';
-    document.querySelector('#screenshot').src = src;
-    document.querySelector('#screenshot-link').href = src;
-    document.querySelectorAll('[data-theme]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.theme === theme)));
-  }));
+
+  document.querySelectorAll('[data-language]').forEach(button => {
+    button.addEventListener('click', () => setLanguage(button.dataset.language));
+  });
+  document.querySelectorAll('[data-theme]').forEach(button => {
+    button.addEventListener('click', () => {
+      theme = button.dataset.theme;
+      const source = theme === 'light' ? 'screenshots/overview-light.png' : 'screenshots/overview-dim-theme.png';
+      image.src = source;
+      fullImage.src = source;
+      document.querySelectorAll('[data-theme]').forEach(item => item.setAttribute('aria-pressed', String(item === button)));
+      updateImageLabel();
+    });
+  });
+
+  document.querySelector('[data-open-preview]').addEventListener('click', () => dialog.showModal());
+  document.querySelector('[data-close-preview]').addEventListener('click', () => dialog.close());
+  dialog.addEventListener('click', event => {
+    if (event.target !== dialog) return;
+    const bounds = dialog.getBoundingClientRect();
+    if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) dialog.close();
+  });
+
+  function activateMode(button) {
+    modeButtons.forEach(item => {
+      const selected = item === button;
+      item.setAttribute('aria-selected', String(selected));
+      item.tabIndex = selected ? 0 : -1;
+      document.getElementById(item.getAttribute('aria-controls')).hidden = !selected;
+    });
+  }
+  modeButtons.forEach((button, index) => {
+    button.addEventListener('click', () => activateMode(button));
+    button.addEventListener('keydown', event => {
+      let target;
+      if (['ArrowRight', 'ArrowDown'].includes(event.key)) target = (index + 1) % modeButtons.length;
+      if (['ArrowLeft', 'ArrowUp'].includes(event.key)) target = (index + modeButtons.length - 1) % modeButtons.length;
+      if (event.key === 'Home') target = 0;
+      if (event.key === 'End') target = modeButtons.length - 1;
+      if (target === undefined) return;
+      event.preventDefault();
+      activateMode(modeButtons[target]);
+      modeButtons[target].focus();
+    });
+  });
+
+  const navLinks = [...document.querySelectorAll('nav a')];
+  function updateNavigation() {
+    let current = navLinks[0];
+    navLinks.forEach(link => {
+      const section = document.querySelector(link.getAttribute('href'));
+      if (section.getBoundingClientRect().top <= 180) current = link;
+    });
+    if (window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 8) current = navLinks.at(-1);
+    navLinks.forEach(link => {
+      link.classList.toggle('current', link === current);
+      if (link === current) link.setAttribute('aria-current', 'location');
+      else link.removeAttribute('aria-current');
+    });
+  }
+  let scheduled = false;
+  window.addEventListener('scroll', () => {
+    if (scheduled) return;
+    scheduled = true;
+    requestAnimationFrame(() => { updateNavigation(); scheduled = false; });
+  }, { passive: true });
   let saved = 'en';
   try { saved = localStorage.getItem('xratio-language') || 'en'; } catch {}
   setLanguage(saved, false);
+  updateNavigation();
 })();
