@@ -21,41 +21,52 @@
       alt: 'Vue d’ensemble de l’application XRatio', doc: 'documentation.html'
     }
   };
+  copy.es = { title:'XRatio — Tus torrents. Tu control.', description:'Interceptación local de trackers y simulación independiente en una aplicación nativa de Windows.', navigation:'Navegación principal', language:'Elegir idioma', theme:'Tema de la vista previa', preview:'Captura de la aplicación', enlarge:'Ampliar la captura', close:'Cerrar la captura', alt:'Vista general de XRatio', doc:'documentation.html' };
+  copy.de = { title:'XRatio — Deine Torrents. Deine Kontrolle.', description:'Lokale Tracker-Interception und unabhängige Simulation in einer nativen Windows-App.', navigation:'Hauptnavigation', language:'Sprache wählen', theme:'Vorschaudesign', preview:'App-Screenshot', enlarge:'Screenshot vergrößern', close:'Screenshot schließen', alt:'XRatio-Übersicht', doc:'documentation.html' };
   function updateImageLabel() {
     if (!image || !fullImage) return;
-    const name = theme === 'light' ? (language === 'fr' ? 'clair' : 'light') : (language === 'fr' ? 'tamisé' : 'dim');
-    image.alt = `${copy[language].alt} — ${name}`;
+    const name = ({en:{light:'light',dim:'dim'},fr:{light:'clair',dim:'tamisé'},es:{light:'claro',dim:'atenuado'},de:{light:'hell',dim:'gedimmt'}})[language][theme];
+    image.alt = `${(copy[language] || copy.en).alt} — ${name}`;
     fullImage.alt = image.alt;
   }
   function setLanguage(value, persist = true) {
-    language = value === 'fr' ? 'fr' : 'en';
+    language = ['en', 'fr', 'es', 'de'].includes(value) ? value : 'en';
     root.lang = language;
-    const selected = copy[language];
+    const selected = copy[language] || copy.en;
     const docs = root.dataset.page === 'documentation';
-    const title = docs ? 'Documentation — XRatio' : selected.title;
-    const description = docs ? (language === 'fr' ? 'Guide XRatio : installation, proxy qBittorrent, HTTPS, simulation et dépannage.' : 'XRatio guide: installation, qBittorrent proxy, HTTPS, simulation and troubleshooting.') : selected.description;
+    const title = docs ? `${({es:'Documentación',de:'Dokumentation'})[language] || 'Documentation'} — XRatio` : selected.title;
+    const description = docs && ['es','de'].includes(language) ? ({es:'Guía de XRatio: instalación, proxy qBittorrent, HTTPS, simulación y solución de problemas.',de:'XRatio-Anleitung: Installation, qBittorrent-Proxy, HTTPS, Simulation und Fehlerbehebung.'})[language] : docs ? (language === 'fr' ? 'Guide XRatio : installation, proxy qBittorrent, HTTPS, simulation et dépannage.' : 'XRatio guide: installation, qBittorrent proxy, HTTPS, simulation and troubleshooting.') : selected.description;
     document.title = title;
     document.querySelector('meta[property="og:title"]').content = title;
     document.querySelector('meta[name="description"]').content = description;
     document.querySelector('meta[property="og:description"]').content = description;
-    document.querySelectorAll('[data-en][data-fr]').forEach(element => { element.textContent = element.dataset[language]; });
+    document.querySelectorAll('[data-en][data-fr]').forEach(element => { element.textContent = language === 'fr' ? element.dataset.fr : window.XRatioLocales?.[language]?.[element.dataset.en] || element.dataset.en; });
     document.querySelectorAll('[data-language]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.language === language)));
     document.querySelector('nav').setAttribute('aria-label', selected.navigation);
-    document.querySelector('.languages').setAttribute('aria-label', selected.language);
+    document.querySelector('#language-select').value = language;
+    document.querySelector('#language-select').setAttribute('aria-label', ({es:'Elegir idioma',de:'Sprache wählen'})[language] || selected.language);
     document.querySelector('.theme-switch')?.setAttribute('aria-label', selected.theme);
     document.querySelector('[data-open-preview]')?.setAttribute('aria-label', selected.enlarge);
     document.querySelector('[data-close-preview]')?.setAttribute('aria-label', selected.close);
     dialog?.setAttribute('aria-label', selected.preview);
     document.querySelectorAll('[data-doc]').forEach(link => { link.href = selected.doc; });
-    document.querySelectorAll('[data-en-alt]').forEach(element => { element.alt = element.dataset[`${language}Alt`]; });
-    document.querySelectorAll('[data-en-label]').forEach(element => { element.setAttribute('aria-label', element.dataset[`${language}Label`]); });
+    document.querySelectorAll('[data-en-alt]').forEach(element => { element.alt = element.dataset[`${language}Alt`] || window.XRatioLocales?.[language]?.[element.dataset.enAlt] || element.dataset.enAlt; });
+    document.querySelectorAll('[data-en-label]').forEach(element => { element.setAttribute('aria-label', element.dataset[`${language}Label`] || window.XRatioLocales?.[language]?.[element.dataset.enLabel] || element.dataset.enLabel); });
     updateImageLabel();
     if (persist) { try { localStorage.setItem('xratio-language', language); } catch {} }
     document.dispatchEvent(new Event('xratio-language-change'));
   }
-  document.querySelectorAll('[data-language]').forEach(button => {
-    button.addEventListener('click', () => setLanguage(button.dataset.language));
+  document.querySelector('#language-select').addEventListener('change', event => setLanguage(event.target.value));
+  const navigation = document.querySelector('.navigation');
+  const menuToggle = document.querySelector('.nav-toggle');
+  function closeMenu() { navigation.classList.remove('menu-open'); menuToggle.setAttribute('aria-expanded', 'false'); }
+  menuToggle.addEventListener('click', () => {
+    const open = navigation.classList.toggle('menu-open');
+    menuToggle.setAttribute('aria-expanded', String(open));
   });
+  document.querySelectorAll('.nav-links a').forEach(link => link.addEventListener('click', closeMenu));
+  document.addEventListener('keydown', event => { if (event.key === 'Escape' && navigation.classList.contains('menu-open')) { closeMenu(); menuToggle.focus(); } });
+  document.addEventListener('click', event => { if (!navigation.contains(event.target)) closeMenu(); });
   document.querySelectorAll('[data-theme]').forEach(button => {
     button.addEventListener('click', () => {
       theme = button.dataset.theme;
@@ -77,7 +88,7 @@
   try { saved = localStorage.getItem('xratio-language') || 'en'; } catch {}
   setLanguage(saved, false);
   const motion = matchMedia('(prefers-reduced-motion: reduce)');
-  const reveals = document.querySelectorAll('.reveal, .feature-heading, .feature-pair article, .desktop-note, .get-app');
+  const reveals = document.querySelectorAll('.reveal, .feature-heading, .feature-pair article, .desktop-note, .get-app, .demo-app, .tracker-card');
   if ('IntersectionObserver' in window && !motion.matches) {
     const observer = new IntersectionObserver(entries => {
       entries.forEach(entry => {

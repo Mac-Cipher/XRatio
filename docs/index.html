@@ -11,27 +11,33 @@
   <meta property="og:image" content="https://mac-cipher.github.io/XRatio/screenshots/overview-light.png">
   <link rel="canonical" href="https://mac-cipher.github.io/XRatio/">
   <link rel="icon" href="assets/xratio-icon.png">
-  <link rel="stylesheet" href="styles.css?v=20260905-demo">
-  <link rel="stylesheet" href="extended.css?v=20260905-demo">
-  <script src="script.js?v=20260905-demo" defer></script>
-  <script src="demo-model.js?v=20260905-demo" defer></script>
-  <script src="demo.js?v=20260905-demo" defer></script>
+  <link rel="stylesheet" href="styles.css?v=20260905-nav">
+  <link rel="stylesheet" href="extended.css?v=20260905-nav">
+  <script src="locales.js?v=20260905-nav" defer></script><script src="script.js?v=20260905-nav" defer></script>
+  <script src="demo-model.js?v=20260905-nav" defer></script>
+  <script src="demo.js?v=20260905-nav" defer></script>
   <title>XRatio — Your torrents. Your control.</title>
 </head>
 <body>
   <a class="skip" href="#main" data-en="Skip to content" data-fr="Aller au contenu">Skip to content</a>
   <header class="header">
     <nav class="navigation" aria-label="Main navigation">
-      <a class="brand" href="#"><img src="assets/xratio-icon.png" width="25" height="25" alt="">XRatio</a>
-      <div class="nav-end">
-        <a class="nav-link" href="#features" data-en="Discover" data-fr="Découvrir">Discover</a>
+      <a class="brand" href="index.html" aria-label="XRatio"><img src="assets/xratio-icon.png" width="28" height="28" alt="">XRatio</a>
+      <div class="nav-links" id="site-links">
+        <a class="nav-link" href="#features" data-en="Overview" data-fr="Présentation">Overview</a>
         <a class="nav-link" href="#demo" data-en="Try it" data-fr="Essayer">Try it</a>
-        <a class="nav-link documentation-nav" href="documentation.html">Documentation</a>
-        <div class="languages" role="group" aria-label="Choose language">
-          <button data-language="en" aria-label="English" aria-pressed="true"><span class="flag gb" aria-hidden="true"></span>EN</button>
-          <button data-language="fr" aria-label="Français" aria-pressed="false"><span class="flag fr" aria-hidden="true"></span>FR</button>
-        </div>
-        <a class="button nav-download" href="https://github.com/Mac-Cipher/XRatio/releases/latest/download/XRatio.exe" data-en="Download" data-fr="Télécharger">Download</a>
+        <a class="nav-link documentation-nav" href="documentation.html" data-en="Documentation" data-fr="Documentation">Documentation</a>
+      </div>
+      <div class="nav-actions">
+        <label class="languages">
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/></svg>
+          <select id="language-select" aria-label="Choose language">
+            <option value="en">English</option><option value="fr">Français</option><option value="es">Español</option><option value="de">Deutsch</option>
+          </select>
+          <svg class="select-chevron" viewBox="0 0 12 12" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m3 4.5 3 3 3-3"/></svg>
+        </label>
+        <a class="button nav-download" href="https://github.com/Mac-Cipher/XRatio/releases/latest/download/XRatio.exe"><span data-en="Download" data-fr="Télécharger">Download</span><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M8 2v9m-3-3 3 3 3-3M3 12v2h10v-2"/></svg></a>
+        <button class="nav-toggle" aria-expanded="false" aria-controls="site-links" aria-label="Menu"><span></span><span></span></button>
       </div>
     </nav>
   </header>
@@ -95,7 +101,7 @@
         <p class="story-caption" data-en="Interception uses your existing client. Simulation creates independent announces without transferring files." data-fr="L’interception utilise votre client existant. La simulation crée des annonces indépendantes sans transférer de fichiers.">Interception uses your existing client. Simulation creates independent announces without transferring files.</p>
       </div>
     </section>
-    <section class="personal-section"><div class="wide-content personal-layout"><div class="reveal"><p class="eyebrow" data-en="Your desktop. Your way." data-fr="Votre bureau. À votre façon.">Your desktop. Your way.</p><h2 data-en="A place for every session." data-fr="Une place pour chaque session.">A place for every session.</h2><p class="section-description" data-en="Check the proxy at a glance. Follow events in Activity. Choose a theme and keep the app close in the system tray." data-fr="Vérifiez le proxy en un regard. Suivez les événements dans Activité. Choisissez un thème et gardez l’application à portée de main dans la zone de notification.">Check the proxy at a glance. Follow events in Activity. Choose a theme and keep the app close in the system tray.</p><a class="learn-link" href="documentation.html#interface"><span data-en="Explore the interface" data-fr="Explorer l’interface">Explore the interface</span><span aria-hidden="true">›</span></a></div><div class="detail-screenshot reveal"><img src="screenshots/overview-dim-theme.png" alt="XRatio dim theme overview" data-en-alt="XRatio dim theme overview" data-fr-alt="Vue d’ensemble de XRatio en thème tamisé" width="1296" height="839" loading="lazy"></div></div></section>
+    <section class="personal-section" id="appearance"><div class="wide-content personal-layout"><div class="reveal"><p class="eyebrow" data-en="Your desktop. Your way." data-fr="Votre bureau. À votre façon.">Your desktop. Your way.</p><h2 data-en="A place for every session." data-fr="Une place pour chaque session.">A place for every session.</h2><p class="section-description" data-en="Check the proxy at a glance. Follow events in Activity. Choose a theme and keep the app close in the system tray." data-fr="Vérifiez le proxy en un regard. Suivez les événements dans Activité. Choisissez un thème et gardez l’application à portée de main dans la zone de notification.">Check the proxy at a glance. Follow events in Activity. Choose a theme and keep the app close in the system tray.</p><a class="learn-link" href="documentation.html#interface"><span data-en="Explore the interface" data-fr="Explorer l’interface">Explore the interface</span><span aria-hidden="true">›</span></a></div><div class="detail-screenshot reveal"><img src="screenshots/overview-dim-theme.png" alt="XRatio dim theme overview" data-en-alt="XRatio dim theme overview" data-fr-alt="Vue d’ensemble de XRatio en thème tamisé" width="1296" height="839" loading="lazy"></div></div></section>
     <section class="getting-started"><div class="content-width"><div class="section-intro reveal"><p class="eyebrow" data-en="From here to your desktop." data-fr="D’ici à votre bureau.">From here to your desktop.</p><h2 data-en="A guided first step." data-fr="Un premier pas guidé.">A guided first step.</h2></div><ol class="onboarding-steps"><li class="reveal"><span>1</span><h3 data-en="Open XRatio." data-fr="Ouvrez XRatio.">Open XRatio.</h3><p data-en="Get the self-contained Windows executable. No separate runtime to install." data-fr="Récupérez l’exécutable Windows autonome. Aucun environnement séparé à installer.">Get the self-contained Windows executable. No separate runtime to install.</p></li><li class="reveal"><span>2</span><h3 data-en="Choose your mode." data-fr="Choisissez votre mode.">Choose your mode.</h3><p data-en="Connect your client to the proxy, or load a .torrent for an independent simulation." data-fr="Connectez votre client au proxy, ou chargez un .torrent pour une simulation indépendante.">Connect your client to the proxy, or load a .torrent for an independent simulation.</p></li><li class="reveal"><span>3</span><h3 data-en="Follow the activity." data-fr="Suivez l’activité.">Follow the activity.</h3><p data-en="Use the guide to check your setup, then inspect the first announce and its counters." data-fr="Vérifiez la configuration avec le guide, puis consultez la première annonce et ses compteurs.">Use the guide to check your setup, then inspect the first announce and its counters.</p></li></ol><a class="learn-link" href="documentation.html"><span data-en="Read the complete guide" data-fr="Lire le guide complet">Read the complete guide</span><span aria-hidden="true">›</span></a></div></section>
     <section class="get-app" id="download">
       <img class="app-icon" src="assets/xratio-icon.png" alt="" width="84" height="84" loading="lazy">
@@ -106,7 +112,7 @@
       <a class="release-link" href="https://github.com/Mac-Cipher/XRatio/releases/latest" data-en="Release notes and checksums ↗" data-fr="Notes de version et empreintes ↗">Release notes and checksums ↗</a>
     </section>
   </main>
-  <footer><div class="footer-inner"><span>XRatio <span class="footer-dot">·</span> GPL-3.0</span><div><a href="https://github.com/Mac-Cipher/XRatio">GitHub</a><a data-doc href="documentation.html">Documentation</a><a href="https://github.com/Mac-Cipher/XRatio/issues" data-en="Support" data-fr="Assistance">Support</a></div><span data-en="Made by Mac-Cipher." data-fr="Créé par Mac-Cipher.">Made by Mac-Cipher.</span></div></footer>
+  <footer><div class="footer-inner"><span>XRatio <span class="footer-dot">·</span> GPL-3.0</span><div><a href="https://github.com/Mac-Cipher/XRatio">GitHub</a><a data-doc href="documentation.html" data-en="Documentation" data-fr="Documentation">Documentation</a><a href="https://github.com/Mac-Cipher/XRatio/issues" data-en="Support" data-fr="Assistance">Support</a></div><span data-en="Made by Mac-Cipher." data-fr="Créé par Mac-Cipher.">Made by Mac-Cipher.</span></div></footer>
   <dialog id="preview-dialog" aria-label="Application screenshot"><button class="close-preview" type="button" data-close-preview aria-label="Close screenshot">×</button><img id="full-screenshot" src="screenshots/overview-light.png" width="1279" height="830" alt="Full XRatio screenshot"></dialog>
 </body>
 </html>

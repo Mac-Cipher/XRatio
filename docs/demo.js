@@ -8,7 +8,20 @@
   let timer = null;
   let lastTime = 0;
   let event = 'ready';
-  const text = (en, fr) => document.documentElement.lang === 'fr' ? fr : en;
+  const translations = {
+    es: {'Ready':'Listo', 'Running':'En curso', 'Paused':'En pausa', 'Complete':'Completado', 'Pause':'Pausa', 'Resume':'Continuar', 'Start demo':'Iniciar demo', 'announce':'notificación', 'announces':'notificaciones', 'Ratio below 1':'Ratio inferior a 1', 'Ready to send the first example announce.':'Listo para enviar la primera notificación de ejemplo.', 'Demo running. Counters will be sent at the next announce.':'Demo en curso. Los contadores se enviarán con la próxima notificación.', 'Demo paused. Counters and the timer are frozen.':'Demo en pausa. Los contadores y el temporizador están detenidos.', 'Example complete: ratio 3.00. Reset to try again.':'Ejemplo completado: ratio 3,00. Reinicia para volver a probar.'},
+    de: {'Ready':'Bereit', 'Running':'Läuft', 'Paused':'Pausiert', 'Complete':'Abgeschlossen', 'Pause':'Pause', 'Resume':'Fortsetzen', 'Start demo':'Demo starten', 'announce':'Announce', 'announces':'Announces', 'Ratio below 1':'Ratio unter 1', 'Ready to send the first example announce.':'Bereit für das erste Beispiel-Announce.', 'Demo running. Counters will be sent at the next announce.':'Demo läuft. Zähler werden beim nächsten Announce gesendet.', 'Demo paused. Counters and the timer are frozen.':'Demo pausiert. Zähler und Timer sind angehalten.', 'Example complete: ratio 3.00. Reset to try again.':'Beispiel abgeschlossen: Ratio 3,00. Zum Wiederholen zurücksetzen.'}
+  };
+  const text = (en, fr) => {
+    const lang = document.documentElement.lang;
+    if (lang === 'fr') return fr;
+    if (translations[lang]?.[en]) return translations[lang][en];
+    if (lang === 'es' || lang === 'de') {
+      if (en.startsWith('Example announce #')) return lang === 'es' ? `Notificación de ejemplo n.º ${model.announces} recibida. Ratio ${number(model.ratio)}.` : `Beispiel-Announce Nr. ${model.announces} empfangen. Ratio ${number(model.ratio)}.`;
+      if (en.startsWith('Example ratio history:')) return lang === 'es' ? `Historial del ratio: de 0,40 a ${number(model.ratio)}` : `Ratio-Verlauf: 0,40 bis ${number(model.ratio)}`;
+    }
+    return en;
+  };
   const number = (value, digits = 2) => value.toLocaleString(document.documentElement.lang, { minimumFractionDigits: digits, maximumFractionDigits: digits });
   const gb = value => `${number(value)} ${text('GB', 'Go')}`;
   function announceStatus() {
@@ -24,7 +37,7 @@
   function render() {
     container.classList.toggle('is-running', model.running);
     get('demo-state').textContent = model.finished ? text('Complete', 'Terminé') : model.running ? text('Running', 'En cours') : model.elapsed > 0 ? text('Paused', 'En pause') : text('Ready', 'Prêt');
-    toggle.textContent = model.running ? 'Pause' : model.elapsed > 0 ? text('Resume', 'Reprendre') : text('Start demo', 'Lancer la démo');
+    toggle.textContent = model.running ? text('Pause', 'Pause') : model.elapsed > 0 ? text('Resume', 'Reprendre') : text('Start demo', 'Lancer la démo');
     if (model.finished) toggle.textContent = text('Complete', 'Terminé');
     toggle.disabled = model.finished;
     toggle.setAttribute('aria-pressed', String(model.running));
@@ -58,7 +71,12 @@
       const now = performance.now();
       const updated = model.tick(Math.min((now - lastTime) / 1000, .5));
       lastTime = now;
-      if (updated) { event = 'announce'; announceStatus(); }
+      if (updated) {
+        event = 'announce'; announceStatus();
+        if (!matchMedia('(prefers-reduced-motion: reduce)').matches && get('tracker-ratio').animate) {
+          get('tracker-ratio').animate([{transform:'translateY(3px)',opacity:.65},{transform:'translateY(0)',opacity:1}], {duration:420,easing:'ease-out'});
+        }
+      }
       if (model.finished) { stopTimer(); event = 'completed'; announceStatus(); }
       render();
     }, 100);
