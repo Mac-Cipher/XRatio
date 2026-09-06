@@ -97,7 +97,7 @@
 @keyframes hero-appear { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: none; } }
 /* Documentation has its own reading layout; product navigation remains shared. */
 .docs-shell { max-width: 1100px; width: calc(100% - 64px); margin: 65px auto 95px; display: grid; grid-template-columns: 210px minmax(0,1fr); gap: 80px; }
-.docs-toc { position: sticky; top: 110px; align-self: start; }
+.docs-toc { position: sticky; top: 130px; align-self: start; }
 .docs-toc>p { font-size: 10px; letter-spacing: 1px; color: var(--secondary); margin-bottom: 17px; }
 .docs-toc nav { display: grid; gap: 4px; }
 .docs-toc nav a { padding: 9px 0; font-size: 13px; color: #424245; }
@@ -279,3 +279,49 @@
  *, *::before, *::after { animation: none !important; transition: none !important; }
  .reveal-pending { opacity: 1; transform: none; }
 }
+
+/* A complete app window moves through light and dim as the reader scrolls. */
+.personal-section { overflow: visible; }
+.gallery-scroll { width: 100%; }
+.gallery-sticky { width: 100%; }
+.gallery-sticky .detail-screenshot { position: relative; isolation: isolate; }
+.gallery-light { position: absolute; inset: 0; width: 100%; height: 100% !important; object-fit: contain; background: #f4f6fa; opacity: 0; }
+.gallery-timeline { display: flex; align-items: center; gap: 20px; justify-content: center; margin: 28px auto 0; max-width: 350px; font-size: 12px; color: var(--secondary); }
+.gallery-timeline > div { height: 2px; flex: 1; background: #dedee3; overflow: hidden; }
+.gallery-timeline i { display: block; height: 100%; width: 100%; background: #1d1d1f; transform-origin: left; transform: scaleX(var(--scene-progress,1)); }
+.cinematic .gallery-light { opacity: calc(1 - var(--scene-dark,0)); }
+.cinematic .gallery-sticky .detail-screenshot { transform: perspective(1500px) rotateX(var(--scene-tilt,0deg)) scale(var(--scene-scale,1)); transform-origin: center; }
+.cinematic .detail-screenshot img { animation: none; }
+.cinematic .product-stage { animation: none; transform: perspective(1500px) rotateX(var(--hero-tilt,0deg)) scale(var(--hero-scale,1)); transform-origin: center; }
+.flow-example { margin-top: 36px; font-size: 15px; line-height: 1.5; color: var(--secondary); }
+.message-flow { margin-top: 42px; }
+.flow-number { font-size: 38px; font-weight: 600; letter-spacing: -1.5px; font-variant-numeric: tabular-nums; margin-top: 7px; }
+[data-flow-adjusted], [data-flow-received] { color: #0066cc; }
+.flow-connection { height: 2px; margin-top: -96px; }
+.flow-connection::after { height: 2px; width: 55%; }
+.message-flow.flow-playing .flow-connection::after { animation: message-move 1.2s .15s ease-in-out 3 both; }
+.message-flow.flow-playing .flow-connection:nth-of-type(2)::after { animation-delay: 1.2s; }
+.flow-playing > div:nth-of-type(2) img { animation: app-response .8s .7s ease-in-out; }
+.flow-playing > div:nth-of-type(3) .flow-number { animation: app-response .8s 1.5s ease-in-out; }
+@keyframes app-response { 50% { transform: translateY(-6px) scale(1.08); } }
+@media (min-width: 761px) and (prefers-reduced-motion: no-preference) {
+ .cinematic .gallery-scroll { min-height: 155vh; }
+ .cinematic .gallery-sticky { position: sticky; top: 130px; }
+ .cinematic .gallery-sticky .detail-screenshot { width: min(1060px, calc((100svh - 250px) * 1.545)); }
+}
+@media (max-width: 760px) {
+ .gallery-timeline { max-width: 240px; margin-top: 20px; }
+ .flow-number { font-size: 30px; }
+ .flow-connection { margin-top: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+ .gallery-light { opacity: 0; }
+ .gallery-timeline { display: none; }
+ .product-stage, .gallery-sticky .detail-screenshot { transform: none !important; }
+}
+
+/* Turn the whole window over; never blend two different text layouts. */
+.cinematic .gallery-sticky .detail-screenshot { overflow: visible; isolation: auto; transform-style: preserve-3d; background: transparent; box-shadow: none; transform: perspective(1800px) rotateX(var(--scene-tilt,0deg)) rotateY(calc(var(--scene-dark,0) * 180deg)) scale(var(--scene-scale,1)); }
+.cinematic .gallery-sticky .detail-screenshot img { backface-visibility: hidden; border-radius: 12px; box-shadow: 0 30px 65px -30px #17233355; }
+.cinematic .gallery-sticky .detail-screenshot > img:first-child { transform: rotateY(180deg); }
+.cinematic .gallery-sticky .gallery-light { opacity: 1; transform: translateZ(1px); }
