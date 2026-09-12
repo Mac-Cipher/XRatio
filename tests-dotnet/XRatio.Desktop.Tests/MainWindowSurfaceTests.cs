@@ -990,9 +990,7 @@ public sealed class MainWindowSurfaceTests
                     icon.Margin == new Thickness(0, -1, 0, 1));
         Assert.NotNull(updateIndicator.Template);
         Assert.NotNull(updateIndicator.Transitions);
-        Assert.Contains(
-            updateIndicator.Transitions!,
-            transition => transition.GetType().Name == "DoubleTransition");
+        Assert.Empty(updateIndicator.Transitions!);
         Assert.True(
             MainWindow.ResolveUpdateIndicatorExpandedWidth("Mise à jour") >
             MainWindow.ResolveUpdateIndicatorExpandedWidth("Update"));
@@ -1313,6 +1311,75 @@ public sealed class MainWindowSurfaceTests
         Assert.Equal(TimeSpan.FromMinutes(90), MainWindow.ResolveSimulationTimerDuration(90, "Minutes"));
         Assert.Equal(TimeSpan.FromHours(2), MainWindow.ResolveSimulationTimerDuration(2, "Hours"));
         Assert.Equal(TimeSpan.FromMinutes(2), MainWindow.ResolveSimulationTimerDuration(2, "unknown"));
+    }
+
+    [Fact]
+    public void AuditCorrections_ExposeNamesAndLinkedLabelsInBothLanguages()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        EnsureAvaloniaSetup();
+        var window = new MainWindow(new InMemorySettingsStore(), new TestAutostartService(),
+            new TestCertificateAuthorityService(), static () => { });
+        var localize = typeof(MainWindow).GetMethod("ApplyLocalization", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var language = typeof(MainWindow).GetField("_language", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var tabs = (TabControl)typeof(MainWindow).GetField("_tabs", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(window)!;
+        foreach (var locale in new[] { UiText.English, UiText.French })
+        {
+            language.SetValue(window, locale);
+            localize.Invoke(window, [null]);
+            var buttons = Descendants((Control)window.Content!).OfType<Button>().ToArray();
+            Assert.Contains(buttons, b => Avalonia.Automation.AutomationProperties.GetName(b) == UiText.Translate("Overview", locale));
+            Assert.Contains(buttons, b => Avalonia.Automation.AutomationProperties.GetName(b) == UiText.Translate("Open XRatio on GitHub", locale));
+            foreach (var item in tabs.Items.OfType<TabItem>())
+            {
+                foreach (var editor in Descendants((Control)item.Content!).Where(c => c is TextBox or ComboBox))
+                {
+                    Assert.True(!string.IsNullOrWhiteSpace(Avalonia.Automation.AutomationProperties.GetName(editor)) ||
+                        Avalonia.Automation.AutomationProperties.GetLabeledBy(editor) is not null,
+                        $"Unnamed editor: {editor.Tag} {editor.GetType().Name}");
+                }
+            }
+        }
+    }
+
+    [Fact]
+    public void AuditCorrections_ComparisonKeepsActualAndReportedCountersSeparate()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        EnsureAvaloniaSetup();
+        var window = new MainWindow(new InMemorySettingsStore(), new TestAutostartService(),
+            new TestCertificateAuthorityService(), static () => { });
+        var snapshot = new TorrentSnapshot("hash", "https://example.test", 1024, 2048, 4096,
+            0, 8192, 16384, 0, 0, 0, 0, 1, 2, null);
+        var comparison = (Grid)typeof(MainWindow).GetMethod("BuildTransferComparison", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(window, [snapshot])!;
+        Assert.Equal(2, comparison.Children.Count);
+        Assert.True(ContainsText(comparison.Children[0], "Actual"));
+        Assert.True(ContainsText(comparison.Children[1], "Reported"));
+        var values = Descendants(comparison).OfType<TextBlock>().Where(t => t.Text?.StartsWith("↓") == true).ToArray();
+        Assert.Equal(2, values.Length);
+        Assert.NotEqual(values[0].Text, values[1].Text);
+        Assert.All(values, t => { Assert.True(t.FontSize >= 12); Assert.Equal(TextWrapping.Wrap, t.TextWrapping); });
+    }
+
+    [Fact]
+    public void AuditCorrections_GuidesKeepOriginalFloatingLayout()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        EnsureAvaloniaSetup();
+        var window = new MainWindow(new InMemorySettingsStore(), new TestAutostartService(),
+            new TestCertificateAuthorityService(), static () => { });
+        var body = (Grid)((Grid)window.Content!).Children[1];
+        var tabs = body.Children.OfType<TabControl>().Single();
+        foreach (var guide in body.Children.OfType<Border>().Where(b => b.Tag?.ToString()?.EndsWith("Coachmark") == true))
+        {
+            Assert.Equal(Grid.GetRow(tabs), Grid.GetRow(guide));
+            Assert.Equal(392, guide.Width);
+            Assert.Equal(HorizontalAlignment.Right, guide.HorizontalAlignment);
+            Assert.IsType<StackPanel>(guide.Child);
+            Assert.All(Descendants(guide).OfType<Button>().Where(b => b.Content is not string),
+                b => Assert.False(string.IsNullOrWhiteSpace(Avalonia.Automation.AutomationProperties.GetName(b))));
+        }
     }
 
     private static bool ContainsText(Control root, string text) =>

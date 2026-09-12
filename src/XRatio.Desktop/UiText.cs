@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Text.RegularExpressions;
 
 namespace XRatio.Desktop;
@@ -68,6 +68,13 @@ internal static class UiText
         new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["English"] = "Anglais",
+                ["Guide reviewed"] = "Guide consulté",
+                ["Enlarge screenshot"] = "Agrandir la capture",
+                ["Actual"] = "Réel",
+                ["Reported"] = "Rapporté",
+                ["Remaining"] = "Restant",
+                ["Intercept a client or run an independent simulation."] = "Intercepter un client ou lancer une simulation indépendante.",
+                ["Download reporting stays at zero. Pause suspends rewriting; Stop stops the proxy."] = "Le téléchargement déclaré reste à zéro. Pause suspend la réécriture ; Arrêter coupe le proxy.",
             ["French"] = "Français",
             ["Spanish"] = "Espagnol",
             ["German"] = "Allemand",

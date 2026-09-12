@@ -8,8 +8,8 @@ public sealed class UpdateCheckerTests
     [Fact]
     public void VersionMetadata_UsesTheProductVersion()
     {
-        Assert.Equal("1.0.0", AppVersion.Current);
-        Assert.Equal("v1.0.0", AppVersion.Display);
+        Assert.Equal("1.0.1", AppVersion.Current);
+        Assert.Equal("v1.0.1", AppVersion.Display);
     }
 
     [Fact]

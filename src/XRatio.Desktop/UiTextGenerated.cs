@@ -1,4 +1,4 @@
-namespace XRatio.Desktop;
+﻿namespace XRatio.Desktop;
 
 // Generated from the English UI keys; keep this file machine-generated.
 internal static class UiTextGenerated
@@ -8,6 +8,13 @@ internal static class UiTextGenerated
         {
             [UiText.Spanish] = new Dictionary<string, string>(StringComparer.Ordinal)
             {
+                ["Guide reviewed"] = "Guía consultada",
+                ["Enlarge screenshot"] = "Ampliar captura",
+                ["Actual"] = "Real",
+                ["Reported"] = "Declarado",
+                ["Remaining"] = "Restante",
+                ["Intercept a client or run an independent simulation."] = "Interceptar un cliente o ejecutar una simulación independiente.",
+                ["Download reporting stays at zero. Pause suspends rewriting; Stop stops the proxy."] = "La descarga declarada permanece en cero. Pausa suspende la reescritura; Detener apaga el proxy.",
                 ["▶  Start"] = "▶  Inicio",
                 ["■  Stop"] = "■  Detener",
                 ["Report a bug"] = "Informar de un error",
@@ -503,6 +510,13 @@ internal static class UiTextGenerated
             },
             [UiText.German] = new Dictionary<string, string>(StringComparer.Ordinal)
             {
+                ["Guide reviewed"] = "Anleitung gelesen",
+                ["Enlarge screenshot"] = "Screenshot vergrößern",
+                ["Actual"] = "Tatsächlich",
+                ["Reported"] = "Gemeldet",
+                ["Remaining"] = "Verbleibend",
+                ["Intercept a client or run an independent simulation."] = "Einen Client abfangen oder eine unabhängige Simulation starten.",
+                ["Download reporting stays at zero. Pause suspends rewriting; Stop stops the proxy."] = "Der gemeldete Download bleibt null. Pause unterbricht das Umschreiben; Stopp beendet den Proxy.",
                 ["▶  Start"] = "▶  Start",
                 ["■  Stop"] = "■  Stopp",
                 ["Report a bug"] = "Einen Fehler melden",
@@ -998,6 +1012,13 @@ internal static class UiTextGenerated
             },
             [UiText.Italian] = new Dictionary<string, string>(StringComparer.Ordinal)
             {
+                ["Guide reviewed"] = "Guida consultata",
+                ["Enlarge screenshot"] = "Ingrandisci schermata",
+                ["Actual"] = "Reale",
+                ["Reported"] = "Dichiarato",
+                ["Remaining"] = "Rimanente",
+                ["Intercept a client or run an independent simulation."] = "Intercetta un client o avvia una simulazione indipendente.",
+                ["Download reporting stays at zero. Pause suspends rewriting; Stop stops the proxy."] = "Il download dichiarato resta a zero. Pausa sospende la riscrittura; Arresta ferma il proxy.",
                 ["▶  Start"] = "▶  Avvia",
                 ["■  Stop"] = "■  Ferma",
                 ["Report a bug"] = "Segnala un bug",
@@ -1493,6 +1514,13 @@ internal static class UiTextGenerated
             },
             [UiText.Portuguese] = new Dictionary<string, string>(StringComparer.Ordinal)
             {
+                ["Guide reviewed"] = "Guia consultado",
+                ["Enlarge screenshot"] = "Ampliar captura",
+                ["Actual"] = "Real",
+                ["Reported"] = "Reportado",
+                ["Remaining"] = "Restante",
+                ["Intercept a client or run an independent simulation."] = "Intercetar um cliente ou executar uma simulação independente.",
+                ["Download reporting stays at zero. Pause suspends rewriting; Stop stops the proxy."] = "O download reportado fica a zero. Pausa suspende a reescrita; Parar desliga o proxy.",
                 ["▶  Start"] = "▶  Iniciar",
                 ["■  Stop"] = "■  Parar",
                 ["Report a bug"] = "Reportar um bug",
@@ -1988,6 +2016,13 @@ internal static class UiTextGenerated
             },
             [UiText.Japanese] = new Dictionary<string, string>(StringComparer.Ordinal)
             {
+                ["Guide reviewed"] = "ガイド確認済み",
+                ["Enlarge screenshot"] = "画像を拡大",
+                ["Actual"] = "実際",
+                ["Reported"] = "報告値",
+                ["Remaining"] = "残り",
+                ["Intercept a client or run an independent simulation."] = "クライアントを傍受するか、独立したシミュレーションを実行します。",
+                ["Download reporting stays at zero. Pause suspends rewriting; Stop stops the proxy."] = "報告ダウンロード量はゼロのままです。一時停止は書き換えを中断し、停止はプロキシを停止します。",
                 ["English"] = "英語",
                 ["French"] = "フランス語",
                 ["Spanish"] = "スペイン語",
@@ -2523,6 +2558,13 @@ internal static class UiTextGenerated
             },
             [UiText.Chinese] = new Dictionary<string, string>(StringComparer.Ordinal)
             {
+                ["Guide reviewed"] = "已阅读指南",
+                ["Enlarge screenshot"] = "放大截图",
+                ["Actual"] = "实际",
+                ["Reported"] = "报告值",
+                ["Remaining"] = "剩余",
+                ["Intercept a client or run an independent simulation."] = "拦截客户端或运行独立模拟。",
+                ["Download reporting stays at zero. Pause suspends rewriting; Stop stops the proxy."] = "报告的下载量保持为零。暂停会暂停重写；停止会停止代理。",
                 ["English"] = "英语",
                 ["French"] = "法语",
                 ["Spanish"] = "西班牙语",
@@ -3058,6 +3100,13 @@ internal static class UiTextGenerated
             },
             [UiText.Arabic] = new Dictionary<string, string>(StringComparer.Ordinal)
             {
+                ["Guide reviewed"] = "تمت مراجعة الدليل",
+                ["Enlarge screenshot"] = "تكبير الصورة",
+                ["Actual"] = "الفعلي",
+                ["Reported"] = "المبلّغ",
+                ["Remaining"] = "المتبقي",
+                ["Intercept a client or run an independent simulation."] = "اعترض اتصال عميل أو شغّل محاكاة مستقلة.",
+                ["Download reporting stays at zero. Pause suspends rewriting; Stop stops the proxy."] = "يبقى التنزيل المبلّغ صفراً. الإيقاف المؤقت يوقف إعادة الكتابة؛ الإيقاف يوقف الوكيل.",
                 ["English"] = "الإنجليزية",
                 ["French"] = "الفرنسية",
                 ["Spanish"] = "الإسبانية",
@@ -3593,6 +3642,13 @@ internal static class UiTextGenerated
             },
             [UiText.Russian] = new Dictionary<string, string>(StringComparer.Ordinal)
             {
+                ["Guide reviewed"] = "Руководство прочитано",
+                ["Enlarge screenshot"] = "Увеличить снимок",
+                ["Actual"] = "Фактически",
+                ["Reported"] = "Передано трекеру",
+                ["Remaining"] = "Осталось",
+                ["Intercept a client or run an independent simulation."] = "Перехватывайте клиент или запустите независимую симуляцию.",
+                ["Download reporting stays at zero. Pause suspends rewriting; Stop stops the proxy."] = "Заявленная загрузка остаётся нулевой. Пауза приостанавливает перезапись; Стоп останавливает прокси.",
                 ["English"] = "Английский",
                 ["French"] = "Французский",
                 ["Spanish"] = "Испанский",

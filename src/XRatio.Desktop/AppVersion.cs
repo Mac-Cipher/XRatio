@@ -4,7 +4,7 @@ namespace XRatio.Desktop;
 
 internal static class AppVersion
 {
-    public const string Fallback = "1.0.0";
+    public const string Fallback = "1.0.1";
 
     public static string Current =>
         typeof(AppVersion).Assembly

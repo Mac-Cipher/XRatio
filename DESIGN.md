@@ -9,7 +9,7 @@ colors:
   raised-light: "#F8FAFD"
   ink-light: "#122034"
   muted-light: "#5C6B7E"
-  subtle-light: "#74849A"
+  subtle-light: "#5C6B7E"
   border-light: "#D8E1EC"
   accent-light: "#1D4ED8"
   accent-soft-light: "#E8F0FF"

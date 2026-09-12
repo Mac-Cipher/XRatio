@@ -3,8 +3,6 @@ using System.Collections.Concurrent;
 using System.Net.Sockets;
 using Avalonia;
 using Avalonia.Automation;
-using Avalonia.Animation;
-using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Presenters;
@@ -38,7 +36,7 @@ namespace XRatio.Desktop;
  * FORM: operate / observation console, assigned direction 4, concept seed 17816432.
  * FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance.
  */
-public sealed class MainWindow : Window
+public sealed partial class MainWindow : Window
 {
     private const string RepositoryUrl = "https://github.com/Mac-Cipher/XRatio";
     private const string BugReportUrl = "https://github.com/Mac-Cipher/XRatio/issues/new";
@@ -382,7 +380,7 @@ public sealed class MainWindow : Window
         Title = ResolveWindowTitle(OperatingSystem.IsWindows());
         Width = 1280;
         Height = 800;
-        MinWidth = 980;
+        MinWidth = 800;
         MinHeight = 640;
         Background = XRatioPalette.Canvas;
         FontFamily = new FontFamily("Segoe UI Variable Text, Segoe UI");
@@ -673,11 +671,14 @@ public sealed class MainWindow : Window
         if (surface is null)
             return;
 
+        ApplyEditorNames();
         _suppressLanguageSelection = true;
         try
         {
             foreach (var control in Descendants(surface))
             {
+                if (AutomationProperties.GetName(control) is string accessibleName && !string.IsNullOrEmpty(accessibleName))
+                    AutomationProperties.SetName(control, UiText.TranslateMessage(accessibleName, _language));
                 if (ToolTip.GetTip(control) is string tooltipText)
                     ToolTip.SetTip(control, UiText.TranslateMessage(tooltipText, _language));
 
@@ -741,6 +742,7 @@ public sealed class MainWindow : Window
     {
         _statusCanonicalText = canonicalText;
         _status.Text = L(canonicalText);
+        ToolTip.SetTip(_status, _status.Text);
     }
 
     private void ApplySettingsTooltips()
@@ -1043,7 +1045,7 @@ public sealed class MainWindow : Window
             Children = { _toggle, _pause, _hide }
         };
 
-        return new Border
+        var header = new Border
         {
             Background = XRatioPalette.Topbar,
             BorderBrush = XRatioPalette.Border,
@@ -1063,6 +1065,13 @@ public sealed class MainWindow : Window
                 }
             }
         };
+        header.SizeChanged += (_, _) =>
+        {
+            var compact = header.Bounds.Width < 980;
+            surfaceHint.IsVisible = !compact;
+            _status.MaxWidth = compact ? 180 : 250;
+        };
+        return header;
     }
 
     private Control BuildOnboardingOverlay()
@@ -1704,6 +1713,7 @@ public sealed class MainWindow : Window
         _onboardingSidebarDone.IsEnabled = !complete;
         _onboardingSidebarPrevious.IsEnabled = _onboardingStepIndex > 0;
         _onboardingSidebarNext.Content = "→";
+        AutomationProperties.SetName(_onboardingSidebarClose, L("Close onboarding"));
         ToolTip.SetTip(_onboardingSidebarClose, L("Close onboarding"));
         ToolTip.SetTip(_onboardingSidebarPrevious, L("←  Back"));
         ToolTip.SetTip(_onboardingSidebarNext, L("Next step  →"));
@@ -1759,7 +1769,9 @@ public sealed class MainWindow : Window
                     ? XRatioPalette.Accent
                     : XRatioPalette.Border;
             row.Title.Foreground = XRatioPalette.Ink;
-            row.Meta.Text = L(rowComplete ? "Completed" : rowAction);
+            row.Meta.Text = L(rowComplete ? OnboardingCompletionLabel(rowStep) : rowAction);
+            AutomationProperties.SetName(row.Button, L(rowStep.Title));
+            AutomationProperties.SetHelpText(row.Button, row.Meta.Text);
             row.Meta.Foreground = rowComplete
                 ? XRatioPalette.Positive
                 : rowActive
@@ -1823,6 +1835,7 @@ public sealed class MainWindow : Window
         _overviewOnboardingPrevious.IsEnabled = true;
         _overviewOnboardingPrevious.Opacity = _onboardingStepIndex > 0 ? 1 : 0.45;
         _overviewOnboardingNext.Content = "→";
+        AutomationProperties.SetName(_overviewOnboardingClose, L("Close onboarding"));
         ToolTip.SetTip(_overviewOnboardingClose, L("Close onboarding"));
         ToolTip.SetTip(_overviewOnboardingPrevious, L("←  Back"));
         ToolTip.SetTip(_overviewOnboardingNext, L("Next step  →"));
@@ -2152,7 +2165,8 @@ public sealed class MainWindow : Window
                         scroller.Offset.X,
                         Math.Max(0, targetPosition.Y - 120));
                 }
-                target.Focus();
+                if (!_interceptionOnboardingCoachmark.IsVisible && !_simulationOnboardingCoachmark.IsVisible)
+                    target.Focus();
             },
             DispatcherPriority.Loaded);
         RefreshOnboarding();
@@ -2619,7 +2633,7 @@ public sealed class MainWindow : Window
 
         var runtime = new Border
         {
-            MinWidth = 520,
+            MinWidth = 0,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             Background = XRatioPalette.Surface,
             BorderBrush = XRatioPalette.Border,
@@ -2714,7 +2728,7 @@ public sealed class MainWindow : Window
                                 },
                                 new TextBlock
                                 {
-                                    Text = "Two paths, one local control plane.",
+                                    Text = "Intercept a client or run an independent simulation.",
                                     FontSize = 14,
                                     FontWeight = FontWeight.Bold,
                                     Foreground = XRatioPalette.Ink,
@@ -2766,7 +2780,9 @@ public sealed class MainWindow : Window
         var content = new Grid
         {
             MaxWidth = 980,
-            HorizontalAlignment = HorizontalAlignment.Left,
+            // Keep the overlay scrollbar outside the cards and their actions.
+            Margin = new Thickness(0, 0, 16, 0),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
             RowDefinitions = new RowDefinitions("Auto,Auto,Auto,Auto"),
             ColumnDefinitions = new ColumnDefinitions("1.45*,1*"),
             ColumnSpacing = 16,
@@ -2785,6 +2801,7 @@ public sealed class MainWindow : Window
         Grid.SetColumnSpan(onboarding, 2);
         UpdateOverviewMetrics();
         _overviewScroller.Tag = "OverviewScroll";
+        MakeAdaptivePair(content, runtime, modes, 860, 1, 1.45, 1);
         _overviewScroller.Content = content;
         _overviewScroller.HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
         _overviewScroller.VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
@@ -2974,6 +2991,7 @@ public sealed class MainWindow : Window
                 new Setter(Button.CornerRadiusProperty, new CornerRadius(12))
             }
         });
+        AutomationProperties.SetName(_overviewOnboardingClose, L("Close onboarding"));
         ToolTip.SetTip(_overviewOnboardingClose, L("Close onboarding"));
         _overviewOnboardingClose.Click += async (_, _) => await DismissOnboardingAsync();
 
@@ -3006,6 +3024,7 @@ public sealed class MainWindow : Window
                 Children =
                 {
                     _overviewTorrentClientScreenshotTitle,
+                    CreateScreenshotExpandButton(),
                     new Image
                     {
                         // Keep the complete Proxy Server group in frame. The
@@ -3115,6 +3134,14 @@ public sealed class MainWindow : Window
         };
 
         var taskRows = BuildOnboardingSidebarCapsules();
+        var stepLayout = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("0.72*,1.28*"),
+            ColumnSpacing = 14,
+            RowSpacing = 12,
+            Children = { taskRows, Place(stepCard, column: 1) }
+        };
+        MakeAdaptivePair(stepLayout, taskRows, stepCard, 800, 0, 0.72, 1.28);
         _overviewOnboardingCard.Tag = "OverviewOnboardingCard";
         _overviewOnboardingCard.Background = Brushes.Transparent;
         _overviewOnboardingCard.BorderBrush = XRatioPalette.Border;
@@ -3152,16 +3179,7 @@ public sealed class MainWindow : Window
                     }
                 },
                 Place(
-                    new Grid
-                    {
-                        ColumnDefinitions = new ColumnDefinitions("0.72*,1.28*"),
-                        ColumnSpacing = 14,
-                        Children =
-                        {
-                            taskRows,
-                            Place(stepCard, column: 1)
-                        }
-                    },
+                    stepLayout,
                     row: 1)
             }
         };
@@ -5022,6 +5040,7 @@ public sealed class MainWindow : Window
             }
         };
 
+        ConfigureGuideAccessibility(_interceptionOnboardingCoachmark, _interceptionCoachmarkTitle, _interceptionCoachmarkClose, _interceptionCoachmarkDone);
         return _interceptionOnboardingCoachmark;
     }
 
@@ -5044,6 +5063,7 @@ public sealed class MainWindow : Window
         _interceptionCoachmarkDone.Content = L("Got it");
 
         _interceptionOnboardingCoachmark.IsVisible = true;
+        Dispatcher.UIThread.Post(() => _interceptionCoachmarkDone.Focus(), DispatcherPriority.Loaded);
     }
 
     private Control BuildSimulationOnboardingCoachmark()
@@ -5139,6 +5159,7 @@ public sealed class MainWindow : Window
             }
         };
 
+        ConfigureGuideAccessibility(_simulationOnboardingCoachmark, _simulationCoachmarkTitle, _simulationCoachmarkClose, _simulationCoachmarkDone);
         return _simulationOnboardingCoachmark;
     }
 
@@ -5159,6 +5180,7 @@ public sealed class MainWindow : Window
         _simulationCoachmarkDone.Content = L("Got it");
 
         _simulationOnboardingCoachmark.IsVisible = true;
+        Dispatcher.UIThread.Post(() => _simulationCoachmarkDone.Focus(), DispatcherPriority.Loaded);
     }
 
     private Control BuildOptionsTab()
@@ -5438,7 +5460,7 @@ public sealed class MainWindow : Window
 
         var announce = BuildSettingsSection(
             "Announce behavior",
-            "Download reporting stays at zero; use Pause or Stop to suspend announcements.",
+            "Download reporting stays at zero. Pause suspends rewriting; Stop stops the proxy.",
             BuildToggleGroup(_noDownload, _pretendSeed));
 
         var resetSettings = BuildSettingsSection(
@@ -5844,33 +5866,7 @@ public sealed class MainWindow : Window
         button.Cursor = new Cursor(StandardCursorType.Arrow);
         button.HorizontalAlignment = HorizontalAlignment.Right;
         button.ClipToBounds = true;
-        button.Transitions = new Transitions
-        {
-            new DoubleTransition
-            {
-                Property = Layoutable.WidthProperty,
-                Duration = TimeSpan.FromMilliseconds(UpdateIndicatorTransitionMilliseconds),
-                Easing = new CubicEaseOut()
-            },
-            new ThicknessTransition
-            {
-                Property = Button.PaddingProperty,
-                Duration = TimeSpan.FromMilliseconds(UpdateIndicatorTransitionMilliseconds),
-                Easing = new CubicEaseOut()
-            },
-            new BrushTransition
-            {
-                Property = Button.BackgroundProperty,
-                Duration = TimeSpan.FromMilliseconds(UpdateIndicatorTransitionMilliseconds),
-                Easing = new CubicEaseOut()
-            },
-            new BrushTransition
-            {
-                Property = Button.BorderBrushProperty,
-                Duration = TimeSpan.FromMilliseconds(UpdateIndicatorTransitionMilliseconds),
-                Easing = new CubicEaseOut()
-            }
-        };
+        button.Transitions = new Avalonia.Animation.Transitions();
         button.Styles.Add(new Style(selector =>
             selector.OfType<Button>().Class("update-action").Class(":pointerover"))
         {
@@ -6083,6 +6079,15 @@ public sealed class MainWindow : Window
                 new Setter(Button.CornerRadiusProperty, new CornerRadius(18))
             }
         });
+        AutomationProperties.SetName(button, L("Open XRatio on GitHub"));
+        if (button.Content is PathIcon githubIcon)
+        {
+            githubIcon.Foreground = button.Foreground;
+            button.PropertyChanged += (_, e) =>
+            {
+                if (e.Property == ForegroundProperty) githubIcon.Foreground = button.Foreground;
+            };
+        }
         ToolTip.SetTip(button, L("Open XRatio on GitHub"));
         button.Click += async (_, _) => await OpenRepositoryAsync();
         return button;
@@ -7847,6 +7852,10 @@ public sealed class MainWindow : Window
         TextBox minimum,
         TextBox maximum)
     {
+        AutomationProperties.SetName(baseline, label);
+        AutomationProperties.SetName(minimum, label + " — Min");
+        AutomationProperties.SetName(maximum, label + " — Max");
+        AutomationProperties.SetName(randomEnabled, label + " — + Random values");
         baseline.Width = 96;
         baseline.MinWidth = 96;
         return new Grid
@@ -8324,14 +8333,16 @@ public sealed class MainWindow : Window
 
     private static void AddField(Grid grid, int row, string label, Control editor)
     {
-        grid.Children.Add(Place(new TextBlock
+        var fieldLabel = new TextBlock
         {
             Text = label,
             FontSize = 13,
             Foreground = XRatioPalette.Ink,
             TextWrapping = Avalonia.Media.TextWrapping.Wrap,
             VerticalAlignment = VerticalAlignment.Center
-        }, row));
+        };
+        AutomationProperties.SetLabeledBy(editor, fieldLabel);
+        grid.Children.Add(Place(fieldLabel, row));
         grid.Children.Add(Place(editor, row, 1));
     }
 
@@ -8373,7 +8384,7 @@ public sealed class MainWindow : Window
         public static readonly SolidColorBrush MetricSurface = Brush("#F3F6FA");
         public static readonly SolidColorBrush Ink = Brush("#122034");
         public static readonly SolidColorBrush Muted = Brush("#5C6B7E");
-        public static readonly SolidColorBrush Subtle = Brush("#74849A");
+        public static readonly SolidColorBrush Subtle = Brush("#5C6B7E");
         public static readonly SolidColorBrush Border = Brush("#D8E1EC");
         public static readonly SolidColorBrush SectionBorder = Brush("#8297AE");
         public static readonly SolidColorBrush Accent = Brush(AccentPalette.Primary(AccentPalette.Blue, dark: false));
@@ -8410,7 +8421,7 @@ public sealed class MainWindow : Window
             Set(MetricSurface, dark ? "#0F1A29" : softDark ? "#1F252E" : dim ? "#2B3950" : "#F3F6FA");
             Set(Ink, dark ? "#F4F8FD" : softDark ? "#E9EDF3" : dim ? "#F2F6FB" : "#122034");
             Set(Muted, dark ? "#9FB2C8" : softDark ? "#B6C0CE" : dim ? "#C0CBD9" : "#5C6B7E");
-            Set(Subtle, dark ? "#7086A0" : softDark ? "#929EAE" : dim ? "#A7B5C8" : "#74849A");
+            Set(Subtle, dark ? "#7086A0" : softDark ? "#929EAE" : dim ? "#A7B5C8" : "#5C6B7E");
             Set(Border, dark ? "#25364A" : softDark ? "#3A424F" : dim ? "#52637A" : "#D8E1EC");
             Set(SectionBorder, dark ? "#4A6685" : softDark ? "#596574" : dim ? "#6E829C" : "#8297AE");
             Set(Accent, AccentPalette.Primary(accentColor, dark, dim, softDark));
@@ -8735,6 +8746,7 @@ public sealed class MainWindow : Window
         dismiss.PointerExited += (_, _) => SetCloseButtonHoverState(dismiss, hovered: false);
         dismiss.GotFocus += (_, _) => SetCloseButtonHoverState(dismiss, hovered: true);
         dismiss.LostFocus += (_, _) => SetCloseButtonHoverState(dismiss, hovered: false);
+        AutomationProperties.SetName(dismiss, L("Close onboarding"));
         ToolTip.SetTip(dismiss, L("Close onboarding"));
         dismiss.Click += async (_, eventArgs) =>
         {
@@ -9026,6 +9038,7 @@ public sealed class MainWindow : Window
                     }
                 }
             };
+            AutomationProperties.SetName(rowButton, L(step.Title));
             rowButton.Classes.Add("onboarding-capsule");
             rowButton.Styles.Add(new Style(selector =>
                 selector.OfType<Button>().Class("onboarding-capsule").Class(":pointerover"))
@@ -9212,6 +9225,7 @@ public sealed class MainWindow : Window
             HorizontalContentAlignment = HorizontalAlignment.Stretch,
             VerticalContentAlignment = VerticalAlignment.Stretch
         };
+        AutomationProperties.SetName(button, L(label));
         button.Classes.Add("nav-button");
         button.Styles.Add(new Style(selector =>
             selector.OfType<Button>().Class("nav-button").Class(":pointerover"))
@@ -9450,18 +9464,11 @@ public sealed class MainWindow : Window
                 {
                     Text = identity,
                     Foreground = XRatioPalette.Muted,
-                    FontSize = 10.5,
+                    FontSize = 12,
                     FontFeatures = XRatioPalette.TabularNumbers,
                     TextTrimming = TextTrimming.CharacterEllipsis
                 },
-                new TextBlock
-                {
-                    Text = counters,
-                    Foreground = XRatioPalette.Subtle,
-                    FontSize = 10,
-                    FontFeatures = XRatioPalette.TabularNumbers,
-                    TextTrimming = TextTrimming.CharacterEllipsis
-                }
+                BuildTransferComparison(snapshot)
             }
         };
         var surface = new Border
@@ -9470,7 +9477,7 @@ public sealed class MainWindow : Window
             HorizontalAlignment = HorizontalAlignment.Stretch,
             Child = content
         };
-        ToolTip.SetTip(surface, $"{L("Info hash")}: {snapshot.InfoHash}");
+        ToolTip.SetTip(surface, $"{row.Name}\n{identity}\n{counters}\n{L("Info hash")}: {snapshot.InfoHash}");
         return new ListBoxItem
         {
             Tag = row,
