@@ -1,7 +1,5 @@
 # XRatio
 
-[Site web et démo interactive](https://xratio.vercel.app/)
-
 [![GitHub](https://img.shields.io/badge/GitHub-Mac--Cipher-blue?style=for-the-badge&logo=github)](https://github.com/Mac-Cipher/XRatio)
 ![Plateforme](https://img.shields.io/badge/Plateforme-Windows-brightgreen?style=for-the-badge&logo=windows)
 ![Langage](https://img.shields.io/badge/Langage-C%23-purple?style=for-the-badge&logo=c-sharp)
@@ -12,6 +10,8 @@ XRatio est une application desktop tout-en-un pour piloter les ratios annoncés 
 
 - **Interception** : un proxy local HTTP/HTTPS inspiré de [RatioGhost](https://github.com/ratioghost/ratioghost) se place entre votre client torrent et le tracker, modifie les valeurs upload/download envoyées dans les annonces pour que le ratio annoncé puisse rester stable ou augmenter, sans toucher aux fichiers ni au trafic pair-à-pair.
 - **Simulation** : un moteur autonome inspiré de [RatioMaster.NET](https://github.com/NikolayIT/RatioMaster.NET) lit un fichier `.torrent` et envoie des annonces contrôlées avec le profil client, les vitesses, la progression et les compteurs choisis ; il ne transfère pas les vrais fichiers du torrent.
+
+[Site web et démo interactive](https://xratio.vercel.app/)
 
 <p align="center">
   <img src="docs/screenshots/overview-dim-theme.png" alt="Vue d’ensemble actuelle de XRatio en français" width="1000">

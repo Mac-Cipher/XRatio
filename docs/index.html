@@ -11,9 +11,9 @@
   <meta property="og:image" content="https://xratio.vercel.app/screenshots/overview-light.png">
   <link rel="canonical" href="https://xratio.vercel.app/">
   <link rel="icon" href="assets/xratio-icon.png">
-  <link rel="stylesheet" href="styles.css?v=20260906-motion">
-  <link rel="stylesheet" href="extended.css?v=20260906-motion">
-  <script src="locales.js?v=20260906-motion" defer></script><script src="script.js?v=20260906-motion" defer></script>
+  <link rel="stylesheet" href="styles.css?v=20260927-better2">
+  <link rel="stylesheet" href="extended.css?v=20260927-better2">
+  <script src="locales.js?v=20260906-motion" defer></script><script src="script.js?v=20260927-better2" defer></script>
   <script src="demo-model.js?v=20260906-motion" defer></script>
   <script src="demo.js?v=20260906-motion" defer></script><script src="motion.js?v=20260906-motion" defer></script>
   <title>XRatio — Your torrents. Your control.</title>
@@ -30,7 +30,7 @@
       </div>
       <div class="nav-actions">
         <label class="languages">
-          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/></svg>
+          <img class="language-flag" src="assets/flags/en.svg" width="21" height="14" alt="" aria-hidden="true">
           <select id="language-select" aria-label="Choose language">
             <option value="en">English</option><option value="fr">Français</option><option value="es">Español</option><option value="de">Deutsch</option>
           </select>
@@ -41,17 +41,17 @@
       </div>
     </nav>
   </header>
-  <main id="main">
+  <main id="main" tabindex="-1">
     <section class="hero" id="overview">
       <p class="product-name" data-en="XRatio for Windows" data-fr="XRatio pour Windows">XRatio for Windows</p>
       <h1><span data-en="Your torrents." data-fr="Vos torrents.">Your torrents.</span><span data-en="Your control." data-fr="Votre contrôle.">Your control.</span></h1>
       <p class="hero-description" data-en="Tracker interception. Torrent simulation. One native Windows app." data-fr="Interception et simulation de torrents. Une seule application Windows.">Tracker interception. Torrent simulation. One native Windows app.</p>
 
+      <div class="hero-actions"><a class="button" href="https://github.com/Mac-Cipher/XRatio/releases/latest/download/XRatio.exe" data-en="Download for Windows" data-fr="Télécharger pour Windows">Download for Windows</a><a class="learn-link" href="#features"><span data-en="Explore XRatio" data-fr="Découvrir XRatio">Explore XRatio</span><span aria-hidden="true">›</span></a></div>
+      <p class="hero-note" data-en="Free and open source." data-fr="Gratuit et open source.">Free and open source.</p>
       <div class="product-stage">
         <button type="button" class="product-window" data-open-preview aria-label="Enlarge application screenshot"><img id="screenshot" src="screenshots/overview-light.png" width="1279" height="830" alt="XRatio application in the light theme" fetchpriority="high"></button>
       </div>
-      <div class="hero-actions"><a class="button" href="https://github.com/Mac-Cipher/XRatio/releases/latest/download/XRatio.exe" data-en="Download for Windows" data-fr="Télécharger pour Windows">Download for Windows</a><a class="learn-link" href="#features"><span data-en="Explore XRatio" data-fr="Découvrir XRatio">Explore XRatio</span><span aria-hidden="true">›</span></a></div>
-      <p class="hero-note" data-en="Free and open source." data-fr="Gratuit et open source.">Free and open source.</p>
       <div class="appearance"><div class="theme-switch" role="group" aria-label="Preview theme"><button data-theme="light" aria-pressed="true"><span class="swatch light" aria-hidden="true"></span><span data-en="Light" data-fr="Clair">Light</span></button><button data-theme="dim" aria-pressed="false"><span class="swatch dim" aria-hidden="true"></span><span data-en="Dim" data-fr="Tamisé">Dim</span></button></div><p data-en="The real app. Click to take a closer look." data-fr="La vraie application. Cliquez pour la voir de plus près.">The real app. Click to take a closer look.</p></div>
     </section>
     <section class="features" id="features">

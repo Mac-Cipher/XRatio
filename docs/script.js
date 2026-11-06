@@ -32,6 +32,7 @@
   function setLanguage(value, persist = true) {
     language = ['en', 'fr', 'es', 'de'].includes(value) ? value : 'en';
     root.lang = language;
+    document.querySelector('.language-flag').src = `assets/flags/${language}.svg`;
     const selected = copy[language] || copy.en;
     const docs = root.dataset.page === 'documentation';
     const title = docs ? `${({es:'Documentación',de:'Dokumentation'})[language] || 'Documentation'} — XRatio` : selected.title;
@@ -64,7 +65,14 @@
     const open = navigation.classList.toggle('menu-open');
     menuToggle.setAttribute('aria-expanded', String(open));
   });
-  document.querySelectorAll('.nav-links a').forEach(link => link.addEventListener('click', closeMenu));
+  document.querySelectorAll('.nav-links a').forEach(link => link.addEventListener('click', () => {
+    closeMenu();
+    if (!link.hash || link.pathname !== location.pathname) return;
+    const target = document.getElementById(link.hash.slice(1));
+    if (!target) return;
+    target.tabIndex = -1;
+    target.focus({ preventScroll: true });
+  }));
   document.addEventListener('keydown', event => { if (event.key === 'Escape' && navigation.classList.contains('menu-open')) { closeMenu(); menuToggle.focus(); } });
   document.addEventListener('click', event => { if (!navigation.contains(event.target)) closeMenu(); });
   document.querySelectorAll('[data-theme]').forEach(button => {

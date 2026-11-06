@@ -8,6 +8,18 @@
   let timer = null;
   let lastTime = 0;
   let event = 'ready';
+  let feedbackTimer = null;
+  function clearAnnounceFeedback() {
+    clearTimeout(feedbackTimer);
+    feedbackTimer = null;
+    container.classList.remove('announce-received');
+  }
+  // Retargetable opacity feedback follows actual receipts, never the running clock.
+  function showAnnounceFeedback() {
+    clearTimeout(feedbackTimer);
+    container.classList.add('announce-received');
+    feedbackTimer = setTimeout(clearAnnounceFeedback, 240);
+  }
   const translations = {
     es: {'Ready':'Listo', 'Running':'En curso', 'Paused':'En pausa', 'Complete':'Completado', 'Pause':'Pausa', 'Resume':'Continuar', 'Start demo':'Iniciar demo', 'announce':'notificación', 'announces':'notificaciones', 'Ratio below 1':'Ratio inferior a 1', 'Ready to send the first example announce.':'Listo para enviar la primera notificación de ejemplo.', 'Demo running. Counters will be sent at the next announce.':'Demo en curso. Los contadores se enviarán con la próxima notificación.', 'Demo paused. Counters and the timer are frozen.':'Demo en pausa. Los contadores y el temporizador están detenidos.', 'Example complete: ratio 3.00. Reset to try again.':'Ejemplo completado: ratio 3,00. Reinicia para volver a probar.'},
     de: {'Ready':'Bereit', 'Running':'Läuft', 'Paused':'Pausiert', 'Complete':'Abgeschlossen', 'Pause':'Pause', 'Resume':'Fortsetzen', 'Start demo':'Demo starten', 'announce':'Announce', 'announces':'Announces', 'Ratio below 1':'Ratio unter 1', 'Ready to send the first example announce.':'Bereit für das erste Beispiel-Announce.', 'Demo running. Counters will be sent at the next announce.':'Demo läuft. Zähler werden beim nächsten Announce gesendet.', 'Demo paused. Counters and the timer are frozen.':'Demo pausiert. Zähler und Timer sind angehalten.', 'Example complete: ratio 3.00. Reset to try again.':'Beispiel abgeschlossen: Ratio 3,00. Zum Wiederholen zurücksetzen.'}
@@ -73,24 +85,23 @@
       lastTime = now;
       if (updated) {
         event = 'announce'; announceStatus();
-        if (!matchMedia('(prefers-reduced-motion: reduce)').matches && get('tracker-ratio').animate) {
-          get('tracker-ratio').animate([{transform:'translateY(3px)',opacity:.65},{transform:'translateY(0)',opacity:1}], {duration:420,easing:'ease-out'});
-        }
+        showAnnounceFeedback();
       }
       if (model.finished) { stopTimer(); event = 'completed'; announceStatus(); }
       render();
     }, 100);
   });
   get('demo-reset').addEventListener('click', () => {
-    stopTimer(); model.reset(); speed.value = '10'; event = 'ready'; render(); announceStatus();
+    stopTimer(); clearAnnounceFeedback(); model.reset(); speed.value = '10'; event = 'ready'; render(); announceStatus();
   });
-  get('demo-announce').addEventListener('click', () => {
+  get('demo-announce').addEventListener('click', click => {
     if (!model.announce()) return;
     event = 'announce'; render(); announceStatus();
+    if (click.detail > 0) showAnnounceFeedback();
   });
   speed.addEventListener('input', () => { model.setSpeed(Number(speed.value)); render(); });
-  document.addEventListener('visibilitychange', () => { if (document.hidden && model.running) pause(); });
-  window.addEventListener('pagehide', () => { model.pause(); stopTimer(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) { if (model.running) pause(); clearAnnounceFeedback(); } });
+  window.addEventListener('pagehide', () => { model.pause(); stopTimer(); clearAnnounceFeedback(); });
   document.addEventListener('xratio-language-change', () => { render(); announceStatus(); });
   render(); announceStatus();
 })();
