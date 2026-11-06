@@ -8,6 +8,11 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Existing v* tag to validate and package (does not publish or replace release assets)'
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -24,6 +29,8 @@ jobs:
     steps:
       - name: Checkout source code
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.release_tag && format('refs/tags/{0}', inputs.release_tag) || github.ref }}
 
       - name: Setup .NET
         uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
@@ -56,6 +63,8 @@ jobs:
     steps:
       - name: Checkout source code
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.release_tag && format('refs/tags/{0}', inputs.release_tag) || github.ref }}
 
       - name: Setup .NET
         uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
@@ -81,8 +90,9 @@ jobs:
     runs-on: windows-latest
     # The package job consumes the production signing key. Never run it for
     # pull requests or ordinary branch pushes that execute untrusted checkout
-    # contents; tagged pushes are the only publication path.
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    # contents. Manual recovery builds must select an existing release tag;
+    # only tagged pushes publish release assets.
+    if: (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && startsWith(inputs.release_tag, 'v'))
     needs:
       - dotnet-common-tests
       - dotnet-desktop-builds
@@ -90,6 +100,8 @@ jobs:
     steps:
       - name: Checkout source code
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: refs/tags/${{ inputs.release_tag || github.ref_name }}
 
       - name: Setup .NET
         uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
@@ -103,16 +115,14 @@ jobs:
           XRATIO_CODESIGN_PFX_PASSWORD: ${{ secrets.XRATIO_CODESIGN_PFX_PASSWORD }}
           XRATIO_CODESIGN_TIMESTAMP_URL: ${{ vars.XRATIO_CODESIGN_TIMESTAMP_URL }}
         run: |
-          $taggedRelease = '${{ startsWith(github.ref, 'refs/tags/v') }}' -eq 'true'
-          if ($taggedRelease -and [string]::IsNullOrWhiteSpace($env:XRATIO_CODESIGN_PFX_BASE64)) {
-            throw 'Tagged Windows releases require the XRATIO_CODESIGN_PFX_BASE64 secret.'
-          }
-          if ($taggedRelease -and [string]::IsNullOrWhiteSpace($env:XRATIO_CODESIGN_PFX_PASSWORD)) {
-            throw 'Tagged Windows releases require the XRATIO_CODESIGN_PFX_PASSWORD secret.'
+          $hasCertificate = ![string]::IsNullOrWhiteSpace($env:XRATIO_CODESIGN_PFX_BASE64)
+          $hasPassword = ![string]::IsNullOrWhiteSpace($env:XRATIO_CODESIGN_PFX_PASSWORD)
+          if ($hasCertificate -ne $hasPassword) {
+            throw 'Configure both XRATIO_CODESIGN_PFX_BASE64 and XRATIO_CODESIGN_PFX_PASSWORD, or leave both unset for an unsigned package.'
           }
 
           $packageParameters = @{}
-          if (![string]::IsNullOrWhiteSpace($env:XRATIO_CODESIGN_PFX_BASE64)) {
+          if ($hasCertificate) {
             $signingDirectory = Join-Path $env:GITHUB_WORKSPACE 'work\tmp'
             New-Item -ItemType Directory -Path $signingDirectory -Force | Out-Null
             $pfxPath = Join-Path $signingDirectory 'xratio-codesign.pfx'
@@ -138,6 +148,7 @@ jobs:
             }
           }
           else {
+            Write-Warning 'No code-signing certificate configured; producing an unsigned Windows package.'
             ./scripts/package-win-x64.ps1
           }
 
@@ -183,7 +194,7 @@ jobs:
     runs-on: windows-latest
     needs:
       - dotnet-windows-package
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: write
 

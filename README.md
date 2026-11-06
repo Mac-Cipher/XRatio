@@ -104,7 +104,7 @@ Create and smoke-test the self-contained Windows package:
 .\scripts\smoke-win-x64.ps1
 ```
 
-Tagged Windows releases are Authenticode-signed in CI when the repository provides the `XRATIO_CODESIGN_PFX_BASE64` and `XRATIO_CODESIGN_PFX_PASSWORD` secrets; the release job refuses a tagged build without them. For a local package, pass an approved code-signing certificate to `scripts\package-win-x64.ps1` with `-SigningPfxPath` and `-SigningPfxPassword`.
+Tagged Windows releases are Authenticode-signed in CI when the repository provides both `XRATIO_CODESIGN_PFX_BASE64` and `XRATIO_CODESIGN_PFX_PASSWORD`. When both secrets are absent, CI produces an unsigned package with a warning; configuring only one secret fails the build. For a local package, pass an approved code-signing certificate to `scripts\package-win-x64.ps1` with `-SigningPfxPath` and `-SigningPfxPassword`. To validate and package an existing release tag without replacing published assets, manually run Build and Release on `master` with `release_tag` set to that tag.
 
 Installed-qBittorrent smoke tests are opt-in. Enable them only when an isolated qBittorrent launch is acceptable:
 

@@ -117,7 +117,7 @@ Ils utilisent un profil temporaire isolé. Ne les activez pas pendant une sessio
 
 Le package autonome est créé dans `artifacts\win-x64`, puis archivé dans `artifacts\XRatio-dotnet-win-x64.zip` avec checksums, licence et attributions.
 
-Les releases taguées sont signées Authenticode par la CI lorsqu’un certificat de signature de code est fourni via `XRATIO_CODESIGN_PFX_BASE64` et `XRATIO_CODESIGN_PFX_PASSWORD` ; la CI refuse une release taguée si ces secrets manquent. Pour signer un package local, fournissez un certificat de signature de code approuvé à `scripts\package-win-x64.ps1` avec `-SigningPfxPath` et `-SigningPfxPassword`.
+Les releases taguées sont signées Authenticode par la CI lorsque les deux secrets `XRATIO_CODESIGN_PFX_BASE64` et `XRATIO_CODESIGN_PFX_PASSWORD` sont configurés. Sans ces deux secrets, la CI produit un package non signé avec un avertissement ; si un seul secret est configuré, la compilation échoue. Pour signer un package local, fournissez un certificat de signature de code approuvé à `scripts\package-win-x64.ps1` avec `-SigningPfxPath` et `-SigningPfxPassword`. Pour vérifier et packager un tag existant sans remplacer les fichiers publiés, lancez manuellement Build and Release sur `master` avec ce tag dans `release_tag`.
 
 ## Architecture
 
